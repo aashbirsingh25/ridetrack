@@ -1,6 +1,6 @@
 # RideTrack Frontend (`ridetrack-frontend`)
 
-A modern Next.js 14 (App Router) web application built with **TypeScript**, **Tailwind CSS**, **Leaflet Maps (`react-leaflet`)**, and **Socket.io** for real-time order placement and live rider location tracking.
+A modern Next.js 14 (App Router) web application built with **TypeScript**, **Tailwind CSS**, **Leaflet Maps (`react-leaflet`)**, and **Socket.io** for real-time order placement, live rider tracking, and rider dispatch management.
 
 ---
 
@@ -50,14 +50,16 @@ Open [http://localhost:3000](http://localhost:3000) (or Next.js assigned port e.
 
 ---
 
-## 🗺 Application Workflow
+## 🗺 Application Flows
 
-### 1. Place an Order (`/`)
+### 👤 1. Customer Order Flow
+
+#### Place an Order (`/`)
 - User inputs customer ID, pickup address & coordinates (latitude/longitude), drop address & coordinates.
 - Submits form which sends a `POST` request to `http://localhost:3000/orders`.
 - Upon successful creation, redirects automatically to `/track/[orderId]`.
 
-### 2. Live Order Tracking (`/track/[orderId]`)
+#### Live Order Tracking (`/track/[orderId]`)
 - Fetches order details once on mount via `GET http://localhost:3000/orders/[orderId]`.
 - Displays status badge (`placed` = gray, `assigned` = blue, `picked_up` = amber, `delivered` = green).
 - Renders interactive Leaflet map featuring:
@@ -66,3 +68,21 @@ Open [http://localhost:3000](http://localhost:3000) (or Next.js assigned port e.
   - **Rider Marker 🛵**: Blue animated pin (hidden until first location event arrives).
 - Establishes a Socket.io WebSocket connection to `http://localhost:3002`, emits `track:join` with `{ orderId }`, and listens for `location:current` and `location:update` events.
 - Dynamically updates the rider pin and calculates live distance line (`"Rider is X.XX km away"`).
+
+---
+
+### 🛵 2. Rider Dispatch Flow
+
+#### Rider Registration (`/rider`)
+- Enter rider name, phone, and initial location coordinates.
+- Submits `POST http://localhost:3001/riders` to register the rider in PostgreSQL.
+- Saves returned `riderId` in `localStorage` for seamless persistence.
+- Automatically skips registration and redirects to `/rider/dashboard` if `riderId` exists in `localStorage`.
+
+#### Rider Dashboard (`/rider/dashboard`)
+- **Toggle Availability**: Switches rider status between `ONLINE` and `OFFLINE` via `PATCH http://localhost:3001/riders/:id/availability`.
+- **Order Lookup**: Enter an `orderId` to fetch active delivery details (`GET http://localhost:3000/orders/:id`).
+- **Start Location Broadcast**: Starts a 3-second interval streaming live GPS location coordinates via Socket.io (`location:update` to `http://localhost:3002`). Uses browser `navigator.geolocation` with fallback coordinate jitter for indoor demo testing.
+- **Update Order Status**: Action buttons for:
+  - **Mark Picked Up**: Calls `PATCH http://localhost:3000/orders/:id/status` with `{ status: "picked_up", riderId }`.
+  - **Mark Delivered**: Calls `PATCH http://localhost:3000/orders/:id/status` with `{ status: "delivered", riderId }`.
