@@ -1,0 +1,33 @@
+# Environment variables (credentials)
+.env
+**/.env
+.env.local
+**/.env.local
+!.env.example
+!**/.env.example
+!.env.local.example
+!**/.env.local.example
+
+# Dependencies
+node_modules/
+**/node_modules/
+venv/
+**/venv/
+.venv/
+**/.venv/
+
+# Build outputs & caches
+dist/
+**/dist/
+.next/
+**/.next/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# System & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
