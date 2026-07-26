@@ -1,246 +1,126 @@
-# Delivery Order Service (`delivery-order-service`)
+# Delivery Order Microservice (`delivery-order-service`)
 
-A production-ready NestJS microservice built with TypeScript, MongoDB, and Mongoose for managing delivery orders. Designed with clean architecture principles (Modules, Controllers, Services, DTOs) suitable for technical interviews and scalable production deployments.
-
----
-
-## 🚀 Features
-
-- **Standard NestJS Architecture**: Modules, Controllers, Services, and Schemas.
-- **MongoDB & Mongoose**: Object modeling with schema validation, timestamps, and index support via `@nestjs/mongoose`.
-- **Validation & Transformation**: Strict DTO validation using `class-validator` and payload transformation with `class-transformer`.
-- **Environment Configuration**: Centralized dynamic configuration using `@nestjs/config`.
-- **Multi-Stage Dockerfile**: Production-ready, light-weight container build (`node:18-alpine`).
-- **Clean Code & Well-Commented**: Thorough JSDoc comments explaining business logic, routing, and schema structure.
+A NestJS microservice managing delivery order lifecycles connected to **MongoDB** and **RabbitMQ**.
 
 ---
 
-## 🛠️ Tech Stack
+## 🚀 Key Features
 
-- **Framework**: NestJS (v10)
-- **Language**: TypeScript
-- **Database**: MongoDB (via `mongoose` & `@nestjs/mongoose`)
-- **Validation**: `class-validator` & `class-transformer`
-- **Config**: `@nestjs/config`
+- **RESTful HTTP API**: Endpoints for creating, fetching, and updating delivery order statuses.
+- **MongoDB Persistence**: Mongoose ODM with schema validation for delivery orders.
+- **RabbitMQ Event Messaging (Hybrid Microservice)**:
+  - **Emits `order_placed`**: Fire-and-forget event sent via ClientProxy when an order is created.
+  - **Consumes `order_assigned`**: Event pattern listener automatically assigning a rider and updating status to `"assigned"`.
+- **Global Validation & DTO Transformation**: `class-validator` and `class-transformer` integration.
+- **CORS Enabled**: Configured for cross-origin communication with `ridetrack-frontend`.
 
 ---
 
-## 📁 Project Structure
+## 🛠 Project Structure
 
-```
+```text
 delivery-order-service/
-├── .env.example              # Sample environment configuration
-├── .env                      # Local environment configuration
-├── Dockerfile                # Multi-stage production build definition
-├── README.md                 # Project documentation
-├── package.json              # Dependencies and scripts
-├── tsconfig.json             # TypeScript compiler settings
-└── src/
-    ├── main.ts               # Application entry point with global pipes
-    ├── app.module.ts         # Root module with Config and Mongoose setup
-    └── orders/
-        ├── controllers/
-        │   └── orders.controller.ts  # REST HTTP endpoints
-        ├── services/
-        │   └── orders.service.ts     # Business logic & Mongoose queries
-        ├── dto/
-        │   ├── create-order.dto.ts         # Validation DTO for POST /orders
-        │   └── update-order-status.dto.ts  # Validation DTO for PATCH /orders/:id/status
-        ├── enums/
-        │   └── order-status.enum.ts        # Order lifecycle state enum
-        ├── schemas/
-        │   └── order.schema.ts             # Mongoose schema definition
-        └── orders.module.ts                # Feature module definition
+├── src/
+│   ├── orders/
+│   │   ├── dto/
+│   │   │   ├── create-order.dto.ts        # DTO validating order placement payload
+│   │   │   └── update-order-status.dto.ts # DTO validating status/rider update
+│   │   ├── enums/
+│   │   │   └── order-status.enum.ts       # Status Enum ("placed", "assigned", "picked_up", "delivered")
+│   │   ├── schemas/
+│   │   │   └── order.schema.ts            # Mongoose Order Document Schema
+│   │   ├── orders.controller.ts           # REST Endpoints + @EventPattern("order_assigned")
+│   │   ├── orders.service.ts              # Business logic & RabbitMQ event emission
+│   │   └── orders.module.ts               # Feature Module with RMQ ClientProxy registration
+│   ├── app.module.ts                      # Root Module with Mongoose & Config
+│   └── main.ts                            # Hybrid Bootstrap (HTTP + RabbitMQ)
+├── .env.example                           # Environment configuration template
+├── Dockerfile                             # Multi-stage Docker build
+└── README.md                              # Documentation
 ```
 
 ---
 
-## ⚙️ Getting Started Locally
+## ⚙️ Environment Variables
 
-### 1. Prerequisites
-- **Node.js**: v18.x or higher
-- **npm**: v9.x or higher
-- **MongoDB**: Running locally on `mongodb://localhost:27017` or a remote MongoDB URI.
+Create a `.env` file at project root (see `.env.example`):
 
-### 2. Installation
-Clone or navigate to the repository directory and install dependencies:
-```bash
-cd delivery-order-service
-npm install
-```
-
-### 3. Environment Setup
-Copy `.env.example` to `.env` and configure your database URI and port:
-```bash
-cp .env.example .env
-```
-
-Default `.env` contents:
 ```env
 PORT=3000
 MONGODB_URI=mongodb://localhost:27017/delivery_db
-```
-
-### 4. Run the Application
-
-#### Development Mode (with hot-reload):
-```bash
-npm run start:dev
-```
-
-#### Production Mode:
-```bash
-npm run build
-npm run start:prod
-```
-
-The service will start at `http://localhost:3000`.
-
----
-
-## 🐳 Docker Deployment
-
-To build and run the microservice using Docker:
-
-### 1. Build the Docker image
-```bash
-docker build -t delivery-order-service .
-```
-
-### 2. Run the Docker container
-```bash
-docker run -d \
-  -p 3000:3000 \
-  -e PORT=3000 \
-  -e MONGODB_URI="mongodb://host.docker.internal:27017/delivery_db" \
-  --name delivery-order-service \
-  delivery-order-service
+RABBITMQ_URL=amqp://localhost:5672
 ```
 
 ---
 
-## 📑 API Endpoint Documentation
+## 🐰 RabbitMQ Event Messaging Architecture
 
-### 1. Create a New Order
-- **Endpoint**: `POST /orders`
-- **Description**: Creates a new order. Default status set to `"placed"` and `riderId` to `null`.
-- **Request Body**:
+The application runs as a **hybrid NestJS microservice**, serving HTTP REST requests while simultaneously listening for RabbitMQ messages.
+
+### 1. Event Emitted: `order_placed`
+When a new order is created via `POST /orders`, `OrdersService` emits an `order_placed` event over RabbitMQ:
+
+- **Queue Name**: `order_placed`
+- **Pattern**: `order_placed`
+- **Payload Shape**:
   ```json
   {
-    "customerId": "cust_12345",
-    "pickupAddress": "123 Market Street, Downtown",
+    "orderId": "65b2f8a9c20e1a0012a9e4f1",
     "pickupLat": 37.7749,
     "pickupLng": -122.4194,
-    "dropAddress": "456 Mission Street, Bay Area",
     "dropLat": 37.7833,
     "dropLng": -122.4167
   }
   ```
-- **Response** (`201 Created`):
-  ```json
-  {
-    "_id": "66a30c5e7b23f810f9a21b4a",
-    "customerId": "cust_12345",
-    "pickupAddress": "123 Market Street, Downtown",
-    "pickupLat": 37.7749,
-    "pickupLng": -122.4194,
-    "dropAddress": "456 Mission Street, Bay Area",
-    "dropLat": 37.7833,
-    "dropLng": -122.4167,
-    "status": "placed",
-    "riderId": null,
-    "createdAt": "2026-07-26T01:45:00.000Z",
-    "updatedAt": "2026-07-26T01:45:00.000Z",
-    "__v": 0
-  }
-  ```
 
 ---
 
-### 2. Get Order by ID
-- **Endpoint**: `GET /orders/:id`
-- **Description**: Retrieves single order details by MongoDB ObjectId.
-- **Example**: `GET /orders/66a30c5e7b23f810f9a21b4a`
-- **Response** (`200 OK`):
+### 2. Event Consumed: `order_assigned`
+The microservice listens on queue `order_assigned` via `@EventPattern('order_assigned')`:
+
+- **Queue Name**: `order_assigned`
+- **Pattern**: `order_assigned`
+- **Payload Shape**:
   ```json
   {
-    "_id": "66a30c5e7b23f810f9a21b4a",
-    "customerId": "cust_12345",
-    "pickupAddress": "123 Market Street, Downtown",
-    "pickupLat": 37.7749,
-    "pickupLng": -122.4194,
-    "dropAddress": "456 Mission Street, Bay Area",
-    "dropLat": 37.7833,
-    "dropLng": -122.4167,
-    "status": "placed",
-    "riderId": null,
-    "createdAt": "2026-07-26T01:45:00.000Z",
-    "updatedAt": "2026-07-26T01:45:00.000Z"
+    "orderId": "65b2f8a9c20e1a0012a9e4f1",
+    "riderId": "c9a0b123-4567-89ab-cdef-0123456789ab"
   }
   ```
+- **Service Action**: Updates the target order's status to `"assigned"` and sets `riderId` in MongoDB.
 
 ---
 
-### 3. List All Orders (Optional Status Filter)
-- **Endpoint**: `GET /orders`
-- **Query Parameter**: `?status=placed` (Optional filter: `placed`, `assigned`, `picked_up`, `delivered`)
-- **Examples**:
-  - `GET /orders`
-  - `GET /orders?status=placed`
-- **Response** (`200 OK`):
-  ```json
-  [
-    {
-      "_id": "66a30c5e7b23f810f9a21b4a",
-      "customerId": "cust_12345",
-      "pickupAddress": "123 Market Street, Downtown",
-      "pickupLat": 37.7749,
-      "pickupLng": -122.4194,
-      "dropAddress": "456 Mission Street, Bay Area",
-      "dropLat": 37.7833,
-      "dropLng": -122.4167,
-      "status": "placed",
-      "riderId": null,
-      "createdAt": "2026-07-26T01:45:00.000Z",
-      "updatedAt": "2026-07-26T01:45:00.000Z"
-    }
-  ]
-  ```
+## ⚡ How to Run Locally
+
+### 1. Prerequisites
+- **Node.js**: v18 or higher
+- **MongoDB**: Running instance on port `27017`
+- **RabbitMQ**: Running instance on port `5672`
+
+#### Start MongoDB & RabbitMQ via Docker (Quick Start)
+```bash
+docker run -d --name mongodb-local -p 27017:27017 mongo:latest
+docker run -d --name rabbitmq-local -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+```
+
+### 2. Install Dependencies
+```bash
+npm install
+```
+
+### 3. Run in Development Mode
+```bash
+npm run start:dev
+```
 
 ---
 
-### 4. Update Order Status
-- **Endpoint**: `PATCH /orders/:id/status`
-- **Description**: Updates order status and optionally assigns riderId. Valid statuses: `placed`, `assigned`, `picked_up`, `delivered`.
-- **Request Body**:
-  ```json
-  {
-    "status": "assigned",
-    "riderId": "rider_9988"
-  }
-  ```
-- **Response** (`200 OK`):
-  ```json
-  {
-    "_id": "66a30c5e7b23f810f9a21b4a",
-    "customerId": "cust_12345",
-    "pickupAddress": "123 Market Street, Downtown",
-    "pickupLat": 37.7749,
-    "pickupLng": -122.4194,
-    "dropAddress": "456 Mission Street, Bay Area",
-    "dropLat": 37.7833,
-    "dropLng": -122.4167,
-    "status": "assigned",
-    "riderId": "rider_9988",
-    "createdAt": "2026-07-26T01:45:00.000Z",
-    "updatedAt": "2026-07-26T01:45:10.000Z"
-  }
-  ```
+## 🔗 HTTP REST API Endpoints
 
----
-
-## 🧪 Error Handling
-
-The application uses standard NestJS Exception Filters:
-- `400 Bad Request`: Returned when DTO validation fails (e.g. invalid latitude/longitude range, invalid status enum, malformed ObjectId).
-- `404 Not Found`: Returned when attempting to fetch or update an order ID that does not exist in MongoDB.
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/orders` | Create a new delivery order & emit `order_placed` event |
+| `GET` | `/orders` | List all orders (filter with `?status=placed`) |
+| `GET` | `/orders/:id` | Fetch order details by ID |
+| `PATCH` | `/orders/:id/status` | Manually update order status & riderId |

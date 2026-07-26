@@ -1,23 +1,30 @@
 import {
   Injectable,
+  Inject,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
+import { ClientProxy } from '@nestjs/microservices';
 import { Order, OrderDocument } from './schemas/order.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrderStatus } from './enums/order-status.enum';
+import { ORDER_SERVICE_RMQ } from './orders.constants';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
+    @Inject(ORDER_SERVICE_RMQ) private readonly client: ClientProxy,
   ) {}
 
   /**
-   * Creates a new delivery order in MongoDB.
+   * Creates a new delivery order in MongoDB and emits an "order_placed" event to RabbitMQ.
    * Initial status is automatically set to "placed".
    */
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
@@ -26,7 +33,32 @@ export class OrdersService {
       status: OrderStatus.PLACED,
       riderId: null,
     });
-    return createdOrder.save();
+
+    const savedOrder = await createdOrder.save();
+    const orderId = (savedOrder._id || savedOrder.id).toString();
+
+    // Prepare fire-and-forget payload for RabbitMQ
+    const eventPayload = {
+      orderId,
+      pickupLat: savedOrder.pickupLat,
+      pickupLng: savedOrder.pickupLng,
+      dropLat: savedOrder.dropLat,
+      dropLng: savedOrder.dropLng,
+    };
+
+    try {
+      this.client.emit('order_placed', eventPayload);
+      this.logger.log(
+        `[RabbitMQ Event Emitted: order_placed] Order ID: ${orderId} -> pickup: (${savedOrder.pickupLat}, ${savedOrder.pickupLng})`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to emit "order_placed" event to RabbitMQ for order [${orderId}]`,
+        error,
+      );
+    }
+
+    return savedOrder;
   }
 
   /**
@@ -90,6 +122,10 @@ export class OrdersService {
     if (!updatedOrder) {
       throw new NotFoundException(`Order with ID '${id}' not found`);
     }
+
+    this.logger.log(
+      `Order [${id}] status updated to "${status}" (riderId: ${riderId || 'N/A'})`,
+    );
 
     return updatedOrder;
   }

@@ -8,18 +8,21 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrderStatus } from './enums/order-status.enum';
 
 /**
- * Controller exposing RESTful HTTP API endpoints for Order management.
- * Keeps routing thin and delegates business logic to OrdersService.
+ * Controller exposing RESTful HTTP API endpoints AND RabbitMQ Microservice event handlers.
  */
 @Controller('orders')
 export class OrdersController {
+  private readonly logger = new Logger(OrdersController.name);
+
   constructor(private readonly ordersService: OrdersService) {}
 
   /**
@@ -60,5 +63,27 @@ export class OrdersController {
     @Body() updateOrderStatusDto: UpdateOrderStatusDto,
   ) {
     return this.ordersService.updateStatus(id, updateOrderStatusDto);
+  }
+
+  /**
+   * Event Pattern Listener: "order_assigned"
+   * Consumes messages published to RabbitMQ queue "order_assigned".
+   * Payload: { orderId: string, riderId: string }
+   */
+  @EventPattern('order_assigned')
+  async handleOrderAssigned(@Payload() data: { orderId: string; riderId: string }) {
+    this.logger.log(
+      `[RabbitMQ Message Received: order_assigned] Assigning order [${data?.orderId}] to rider [${data?.riderId}]`,
+    );
+
+    if (!data?.orderId || !data?.riderId) {
+      this.logger.error('Invalid order_assigned event payload received', data);
+      return;
+    }
+
+    return this.ordersService.updateStatus(data.orderId, {
+      status: OrderStatus.ASSIGNED,
+      riderId: data.riderId,
+    });
   }
 }
