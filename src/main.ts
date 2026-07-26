@@ -10,6 +10,9 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
+  // Enable CORS for cross-origin frontend access
+  app.enableCors();
+
   // Enable global validation pipe for DTO validation and transformation
   app.useGlobalPipes(
     new ValidationPipe({
