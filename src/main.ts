@@ -1,10 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { AppModule } from './app.module';
 
 /**
- * Bootstrap entry point for rider-dispatch-service NestJS application.
+ * Bootstrap entry point for rider-dispatch-service NestJS hybrid application.
+ * Serves HTTP REST API endpoints AND listens to RabbitMQ microservice queue "order_placed".
  */
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -24,9 +26,29 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
+  const rabbitmqUrl = configService.get<string>(
+    'RABBITMQ_URL',
+    'amqp://localhost:5672',
+  );
+
+  // Connect RabbitMQ microservice listener on queue "order_placed"
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [rabbitmqUrl],
+      queue: 'order_placed',
+      queueOptions: {
+        durable: false,
+      },
+    },
+  });
+
+  // Start all microservices before HTTP server listens
+  await app.startAllMicroservices();
 
   await app.listen(port);
-  logger.log(`🚀 Rider Dispatch Service is running on port: ${port}`);
+  logger.log(`🚀 Rider Dispatch Service HTTP REST API running on port: ${port}`);
+  logger.log(`🐰 RabbitMQ Microservice Listener connected at ${rabbitmqUrl} (queue: order_placed)`);
 }
 
 bootstrap();
