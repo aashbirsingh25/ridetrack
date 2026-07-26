@@ -1,0 +1,77 @@
+services:
+  delivery-order-service:
+    build:
+      context: ./delivery-order-service
+      dockerfile: Dockerfile
+    container_name: delivery-order-service
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./delivery-order-service/.env
+    networks:
+      - ridetrack-network
+    restart: unless-stopped
+
+  rider-dispatch-service:
+    build:
+      context: ./rider-dispatch-service
+      dockerfile: Dockerfile
+    container_name: rider-dispatch-service
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./rider-dispatch-service/.env
+    depends_on:
+      - delivery-order-service
+    networks:
+      - ridetrack-network
+    restart: unless-stopped
+
+  live-tracking-service:
+    build:
+      context: ./live-tracking-service
+      dockerfile: Dockerfile
+    container_name: live-tracking-service
+    ports:
+      - "3002:3002"
+    env_file:
+      - ./live-tracking-service/.env
+    networks:
+      - ridetrack-network
+    restart: unless-stopped
+
+  eta-prediction-service:
+    build:
+      context: ./eta-prediction-service
+      dockerfile: Dockerfile
+    container_name: eta-prediction-service
+    ports:
+      - "3004:3004"
+    env_file:
+      - ./eta-prediction-service/.env
+    networks:
+      - ridetrack-network
+    restart: unless-stopped
+
+  ridetrack-frontend:
+    build:
+      context: ./ridetrack-frontend
+      dockerfile: Dockerfile
+    container_name: ridetrack-frontend
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./ridetrack-frontend/.env
+    depends_on:
+      - delivery-order-service
+      - rider-dispatch-service
+      - live-tracking-service
+      - eta-prediction-service
+    networks:
+      - ridetrack-network
+    restart: unless-stopped
+
+networks:
+  ridetrack-network:
+    name: ridetrack-network
+    driver: bridge
