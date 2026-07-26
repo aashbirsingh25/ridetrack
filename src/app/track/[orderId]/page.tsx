@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Radio,
   Navigation,
+  Sparkles,
 } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { calculateHaversineDistance } from '@/utils/distance';
@@ -52,6 +53,12 @@ interface RiderLocationState {
   timestamp?: string;
 }
 
+interface EtaPrediction {
+  distance_km: number;
+  estimated_duration_minutes: number;
+  confidence_note?: string;
+}
+
 export default function TrackingPage() {
   const params = useParams();
   const orderId = params?.orderId as string;
@@ -61,6 +68,10 @@ export default function TrackingPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [riderLocation, setRiderLocation] = useState<RiderLocationState | null>(null);
+
+  const [eta, setEta] = useState<EtaPrediction | null>(null);
+  const [etaLoading, setEtaLoading] = useState(false);
+  const [etaError, setEtaError] = useState(false);
 
   // Fetch Order details on component mount
   useEffect(() => {
@@ -92,6 +103,46 @@ export default function TrackingPage() {
 
     fetchOrder();
   }, [orderId]);
+
+  // Fetch AI ETA Prediction when order details are loaded
+  useEffect(() => {
+    if (!order) return;
+
+    const etaServiceUrl =
+      process.env.NEXT_PUBLIC_ETA_SERVICE_URL || 'http://localhost:3004';
+
+    const fetchEta = async () => {
+      try {
+        setEtaLoading(true);
+        setEtaError(false);
+        const res = await fetch(`${etaServiceUrl}/predict-eta`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pickupLat: order.pickupLat,
+            pickupLng: order.pickupLng,
+            dropLat: order.dropLat,
+            dropLng: order.dropLng,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`ETA service HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        setEta(data);
+      } catch (err) {
+        console.warn('[TrackingPage] ETA service unavailable:', err);
+        setEtaError(true);
+        setEta(null);
+      } finally {
+        setEtaLoading(false);
+      }
+    };
+
+    fetchEta();
+  }, [order]);
 
   // Compute live distance from rider to drop location
   const distanceToDrop =
@@ -134,7 +185,7 @@ export default function TrackingPage() {
   return (
     <div className="max-w-5xl mx-auto py-6 space-y-6">
       {/* Top Header Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <Link
             href="/"
@@ -156,21 +207,64 @@ export default function TrackingPage() {
           </p>
         </div>
 
-        {/* Live Status Pill / Distance Line */}
-        <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
-            <Radio className="w-5 h-5 animate-pulse" />
-          </div>
-          <div>
-            <div className="text-xs text-slate-500 font-medium">Live Distance</div>
-            <div className="text-sm font-bold text-slate-900">
-              {distanceToDrop !== null ? (
-                <span className="text-sky-600">Rider is {distanceToDrop} km away</span>
-              ) : riderLocation ? (
-                <span>GPS Signal Active</span>
-              ) : (
-                <span className="text-slate-400 font-normal italic">Waiting for rider signal...</span>
-              )}
+        {/* Header Cards (ETA Prediction & Live GPS Status) */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* AI ETA Prediction Card */}
+          {etaLoading ? (
+            <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3 animate-pulse">
+              <div className="w-9 h-9 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5 animate-spin" />
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-500 font-medium">Estimated Delivery</div>
+                <div className="text-xs font-semibold text-slate-400">Calculating ETA...</div>
+              </div>
+            </div>
+          ) : eta ? (
+            <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white px-4 py-3 rounded-xl border border-indigo-900/50 shadow-sm flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5 text-indigo-300" />
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-indigo-300 flex items-center gap-1">
+                  <span>AI Prediction</span>
+                </div>
+                <div className="text-xs font-bold text-white">
+                  Estimated delivery time: <span className="text-indigo-200">{eta.estimated_duration_minutes} minutes</span>
+                </div>
+                <div className="text-[11px] text-slate-300/80">
+                  {eta.distance_km} km away
+                </div>
+              </div>
+            </div>
+          ) : etaError ? (
+            <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3 text-slate-500">
+              <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-400 font-medium">Estimated Delivery</div>
+                <div className="text-xs font-semibold text-slate-600">ETA unavailable</div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Live Status Pill / Distance Line */}
+          <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
+              <Radio className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-500 font-medium">Live GPS Distance</div>
+              <div className="text-xs font-bold text-slate-900">
+                {distanceToDrop !== null ? (
+                  <span className="text-sky-600">Rider is {distanceToDrop} km away</span>
+                ) : riderLocation ? (
+                  <span>GPS Signal Active</span>
+                ) : (
+                  <span className="text-slate-400 font-normal italic">Waiting for rider signal...</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
