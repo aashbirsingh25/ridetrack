@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  delivery-order-service:
+    name: Delivery Order Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: delivery-order-service
+    env:
+      PORT: 3000
+      MONGODB_URI: mongodb://localhost:27017/orders_test
+      RABBITMQ_URL: amqp://localhost:5672
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'delivery-order-service/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build service
+        run: npm run build
+
+      - name: Run tests (if present)
+        run: npm test --if-present
+
+  rider-dispatch-service:
+    name: Rider Dispatch Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rider-dispatch-service
+    env:
+      PORT: 3001
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/riders_test
+      RABBITMQ_URL: amqp://localhost:5672
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'rider-dispatch-service/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build service
+        run: npm run build
+
+      - name: Run tests (if present)
+        run: npm test --if-present
+
+  live-tracking-service:
+    name: Live Tracking Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: live-tracking-service
+    env:
+      PORT: 3002
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'live-tracking-service/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build service
+        run: npm run build
+
+      - name: Run tests (if present)
+        run: npm test --if-present
+
+  eta-prediction-service:
+    name: ETA Prediction Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: eta-prediction-service
+    env:
+      PORT: 3004
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'eta-prediction-service/requirements.txt'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Sanity check (import main)
+        run: python -c "import main; print('ETA prediction service imported successfully')"
+
+  ridetrack-frontend:
+    name: RideTrack Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ridetrack-frontend
+    env:
+      NEXT_PUBLIC_ORDER_SERVICE_URL: http://localhost:3000
+      NEXT_PUBLIC_RIDER_SERVICE_URL: http://localhost:3001
+      NEXT_PUBLIC_TRACKING_SERVICE_URL: http://localhost:3002
+      NEXT_PUBLIC_ETA_SERVICE_URL: http://localhost:3004
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'ridetrack-frontend/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js app
+        run: npm run build

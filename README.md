@@ -1,5 +1,7 @@
 # RideTrack Microservices Platform 🚴📦
 
+[![CI](https://github.com/aashbirsingh25/ridetrack/actions/workflows/ci.yml/badge.svg)](https://github.com/aashbirsingh25/ridetrack/actions/workflows/ci.yml)
+
 RideTrack is an event-driven, production-grade microservices system designed for real-time delivery order placement, automated rider dispatching, live GPS location tracking over WebSockets, and ML-powered ETA duration predictions.
 
 ---
