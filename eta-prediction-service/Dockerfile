@@ -44,4 +44,4 @@ USER appuser
 
 EXPOSE 3004
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3004"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-3004}"]
