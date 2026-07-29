@@ -62,7 +62,47 @@ const FitMapBounds: React.FC<{
   return null;
 };
 
-export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
+// Dedicated memoized Rider Marker component to smoothly update position without unmounting or DOM recreation
+const SmoothRiderMarker: React.FC<{
+  location: RiderLocation;
+  icon: L.DivIcon;
+}> = React.memo(({ location, icon }) => {
+  const markerRef = useRef<L.Marker | null>(null);
+
+  // Smooth position update directly on Leaflet Marker instance
+  useEffect(() => {
+    if (markerRef.current) {
+      markerRef.current.setLatLng([location.lat, location.lng]);
+    }
+  }, [location.lat, location.lng]);
+
+  return (
+    <Marker
+      ref={markerRef}
+      key="rider-live-marker"
+      position={[location.lat, location.lng]}
+      icon={icon}
+    >
+      <Popup>
+        <div className="text-xs p-1">
+          <strong className="text-sky-700 block font-semibold mb-0.5">
+            Rider Location 🛵
+          </strong>
+          <p className="text-slate-600 m-0">
+            Rider ID: {location.riderId || 'Active Rider'}
+          </p>
+          <p className="text-[10px] text-slate-400 mt-1 m-0 font-mono">
+            {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
+          </p>
+        </div>
+      </Popup>
+    </Marker>
+  );
+});
+
+SmoothRiderMarker.displayName = 'SmoothRiderMarker';
+
+export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = React.memo(({
   orderId,
   pickup,
   drop,
@@ -303,21 +343,6 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
           }}
         />
 
-        {/* Live Rider Remaining Path Line (Rider to Drop B) */}
-        {riderLocation && (
-          <Polyline
-            positions={[
-              [riderLocation.lat, riderLocation.lng],
-              [drop.lat, drop.lng],
-            ]}
-            pathOptions={{
-              color: '#10b981', // emerald-500
-              weight: 4,
-              opacity: 0.95,
-            }}
-          />
-        )}
-
         {/* Pickup Location Marker */}
         <Marker position={[pickup.lat, pickup.lng]} icon={pickupPin}>
           <Popup>
@@ -342,31 +367,15 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
           </Popup>
         </Marker>
 
-        {/* Rider Location Marker (Stable Key & CSS smooth transform update) */}
+        {/* Smooth Rider Location Marker */}
         {riderLocation && (
-          <Marker
-            key="rider-live-marker"
-            position={[riderLocation.lat, riderLocation.lng]}
-            icon={riderPin}
-          >
-            <Popup>
-              <div className="text-xs p-1">
-                <strong className="text-sky-700 block font-semibold mb-0.5">
-                  Rider Location 🛵
-                </strong>
-                <p className="text-slate-600 m-0">
-                  Rider ID: {riderLocation.riderId || 'Active Rider'}
-                </p>
-                <p className="text-[10px] text-slate-400 mt-1 m-0">
-                  Updated: {new Date(riderLocation.timestamp || Date.now()).toLocaleTimeString()}
-                </p>
-              </div>
-            </Popup>
-          </Marker>
+          <SmoothRiderMarker location={riderLocation} icon={riderPin} />
         )}
       </MapContainer>
     </div>
   );
-};
+});
+
+LiveTrackingMap.displayName = 'LiveTrackingMap';
 
 export default LiveTrackingMap;

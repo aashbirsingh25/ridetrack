@@ -171,6 +171,32 @@ export default function TrackingPage() {
 
   const isDelivered = order?.status?.toLowerCase() === 'delivered';
 
+  const handleRiderLocationUpdate = React.useCallback((loc: RiderLocationState) => {
+    setRiderLocation(loc);
+  }, []);
+
+  const handleOrderStatusUpdate = React.useCallback((newStatus: string) => {
+    setOrder((prev) => (prev ? { ...prev, status: newStatus } : prev));
+  }, []);
+
+  const pickupLocation = React.useMemo(() => {
+    if (!order) return { lat: 0, lng: 0, address: '' };
+    return {
+      lat: order.pickupLat,
+      lng: order.pickupLng,
+      address: order.pickupAddress,
+    };
+  }, [order?.pickupLat, order?.pickupLng, order?.pickupAddress]);
+
+  const dropLocation = React.useMemo(() => {
+    if (!order) return { lat: 0, lng: 0, address: '' };
+    return {
+      lat: order.dropLat,
+      lng: order.dropLng,
+      address: order.dropAddress,
+    };
+  }, [order?.dropLat, order?.dropLng, order?.dropAddress]);
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto py-12 text-center">
@@ -400,20 +426,10 @@ export default function TrackingPage() {
 
             <LiveTrackingMap
               orderId={orderId}
-              pickup={{
-                lat: order.pickupLat,
-                lng: order.pickupLng,
-                address: order.pickupAddress,
-              }}
-              drop={{
-                lat: order.dropLat,
-                lng: order.dropLng,
-                address: order.dropAddress,
-              }}
-              onRiderLocationUpdate={(loc) => setRiderLocation(loc)}
-              onOrderStatusUpdate={(newStatus) =>
-                setOrder((prev) => (prev ? { ...prev, status: newStatus } : prev))
-              }
+              pickup={pickupLocation}
+              drop={dropLocation}
+              onRiderLocationUpdate={handleRiderLocationUpdate}
+              onOrderStatusUpdate={handleOrderStatusUpdate}
             />
           </div>
 
