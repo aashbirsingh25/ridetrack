@@ -69,6 +69,8 @@ export default function HomePage() {
       }
 
       console.log(`[OrderPlacement] Order created successfully! ID: ${orderId}`);
+      console.log(`[OrderPlacement] Writing lastOrderId to localStorage: ${orderId}`);
+      localStorage.setItem('lastOrderId', orderId);
       router.push(`/track/${orderId}`);
     } catch (err: any) {
       console.error('[OrderPlacement] Error:', err);

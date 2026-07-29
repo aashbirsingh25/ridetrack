@@ -1,7 +1,28 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Navigation, Bike, UserCheck } from 'lucide-react';
 
 export const Header = () => {
+  const pathname = usePathname();
+  const [customerHref, setCustomerHref] = useState('/');
+
+  const updateCustomerHref = () => {
+    const lastOrderId = localStorage.getItem('lastOrderId') || localStorage.getItem('activeOrderId');
+    console.log('[Header] Reading lastOrderId from localStorage:', lastOrderId);
+    if (lastOrderId) {
+      setCustomerHref(`/track/${lastOrderId}`);
+    } else {
+      setCustomerHref('/');
+    }
+  };
+
+  useEffect(() => {
+    updateCustomerHref();
+  }, [pathname]);
+
   return (
     <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -23,7 +44,9 @@ export const Header = () => {
         {/* Navigation Actions */}
         <div className="flex items-center gap-2 sm:gap-4">
           <Link
-            href="/"
+            href={customerHref}
+            onClick={updateCustomerHref}
+            onMouseEnter={updateCustomerHref}
             className="text-xs font-medium px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors flex items-center gap-1.5"
           >
             <Navigation className="w-3.5 h-3.5 text-sky-400" />
@@ -42,3 +65,4 @@ export const Header = () => {
     </header>
   );
 };
+

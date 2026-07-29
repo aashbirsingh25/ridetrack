@@ -23,6 +23,7 @@ interface LiveTrackingMapProps {
   pickup: LatLng;
   drop: LatLng;
   onRiderLocationUpdate?: (loc: RiderLocation) => void;
+  onOrderStatusUpdate?: (status: string) => void;
 }
 
 // Component to dynamically fit map bounds around markers
@@ -55,6 +56,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
   pickup,
   drop,
   onRiderLocationUpdate,
+  onOrderStatusUpdate,
 }) => {
   const [riderLocation, setRiderLocation] = useState<RiderLocation | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<
@@ -163,11 +165,19 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
       }
     });
 
+    // Handle live real-time order status updates
+    socket.on('status:update', (data: any) => {
+      console.log('[Socket.io] Received live status:update', data);
+      if (data && data.status && onOrderStatusUpdate) {
+        onOrderStatusUpdate(data.status);
+      }
+    });
+
     return () => {
       console.log('[Socket.io] Cleaning up socket connection...');
       socket.disconnect();
     };
-  }, [orderId, onRiderLocationUpdate]);
+  }, [orderId, onRiderLocationUpdate, onOrderStatusUpdate]);
 
   const midpoint: [number, number] = [
     (pickup.lat + drop.lat) / 2,

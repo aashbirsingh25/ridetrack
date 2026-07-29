@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Bike,
@@ -75,8 +75,35 @@ export default function RiderDashboardPage() {
   const trackingServiceUrl =
     process.env.NEXT_PUBLIC_TRACKING_SERVICE_URL || 'http://localhost:3002';
 
-  // 1. Check localStorage for riderId and fetch rider details
-  useEffect(() => {
+  // Helper to fetch order details and persist activeOrderId and lastOrderId
+  const fetchOrderDetails = useCallback(async (idToFetch: string) => {
+    setLoadingOrder(true);
+    setOrderError(null);
+
+    try {
+      console.log(`[RiderDashboard] Fetching order details for ID: ${idToFetch}`);
+      const response = await fetch(`${orderServiceUrl}/orders/${idToFetch}`);
+
+      if (!response.ok) {
+        throw new Error(`Order not found or backend unavailable (HTTP ${response.status})`);
+      }
+
+      const orderData: OrderInfo = await response.json();
+      setActiveOrder(orderData);
+      const validId = orderData._id || orderData.id || idToFetch;
+      localStorage.setItem('activeOrderId', validId);
+      localStorage.setItem('lastOrderId', validId);
+    } catch (err: any) {
+      console.error('[RiderDashboard] Lookup error:', err);
+      setOrderError(err.message || 'Failed to fetch order details');
+      setActiveOrder(null);
+    } finally {
+      setLoadingOrder(false);
+    }
+  }, [orderServiceUrl]);
+
+  // Sync rider details and stored active order from localStorage on mount & popstate
+  const syncRiderAndOrderState = useCallback(async () => {
     const storedRiderId = localStorage.getItem('riderId');
     if (!storedRiderId) {
       console.warn('[RiderDashboard] No riderId in localStorage. Redirecting to /rider.');
@@ -86,44 +113,66 @@ export default function RiderDashboardPage() {
 
     setRiderId(storedRiderId);
 
-    const fetchRider = async () => {
-      try {
-        setLoadingRider(true);
-        console.log(`[RiderDashboard] Fetching rider details for ID: ${storedRiderId}`);
-        const response = await fetch(`${riderServiceUrl}/riders/${storedRiderId}`);
+    // Re-check localStorage for active order
+    const storedActiveOrderId = localStorage.getItem('activeOrderId') || localStorage.getItem('lastOrderId');
+    if (storedActiveOrderId) {
+      setLookupOrderId(storedActiveOrderId);
+      fetchOrderDetails(storedActiveOrderId);
+    }
 
-        if (!response.ok) {
-          // If GET /riders/:id failed, fallback to list lookup
-          const listRes = await fetch(`${riderServiceUrl}/riders`);
-          if (listRes.ok) {
-            const list: RiderInfo[] = await listRes.json();
-            const found = list.find((r) => r.id === storedRiderId || (r as any)._id === storedRiderId);
-            if (found) {
-              setRider(found);
-              currentCoordsRef.current = { lat: found.currentLat, lng: found.currentLng };
-              setCurrentCoords({ lat: found.currentLat, lng: found.currentLng });
-              setRiderError(null);
-              return;
-            }
+    // Fetch rider profile details
+    try {
+      setLoadingRider(true);
+      console.log(`[RiderDashboard] Fetching rider details for ID: ${storedRiderId}`);
+      const response = await fetch(`${riderServiceUrl}/riders/${storedRiderId}`);
+
+      if (!response.ok) {
+        // Fallback to list lookup if direct GET fails
+        const listRes = await fetch(`${riderServiceUrl}/riders`);
+        if (listRes.ok) {
+          const list: RiderInfo[] = await listRes.json();
+          const found = list.find((r) => r.id === storedRiderId || (r as any)._id === storedRiderId);
+          if (found) {
+            setRider(found);
+            currentCoordsRef.current = { lat: found.currentLat, lng: found.currentLng };
+            setCurrentCoords({ lat: found.currentLat, lng: found.currentLng });
+            setRiderError(null);
+            return;
           }
-          throw new Error(`Rider not found on Rider Service (HTTP ${response.status})`);
         }
-
-        const data: RiderInfo = await response.json();
-        setRider(data);
-        currentCoordsRef.current = { lat: data.currentLat, lng: data.currentLng };
-        setCurrentCoords({ lat: data.currentLat, lng: data.currentLng });
-        setRiderError(null);
-      } catch (err: any) {
-        console.error('[RiderDashboard] Error fetching rider:', err);
-        setRiderError(err.message || 'Failed to load rider details.');
-      } finally {
-        setLoadingRider(false);
+        throw new Error(`Rider not found on Rider Service (HTTP ${response.status})`);
       }
+
+      const data: RiderInfo = await response.json();
+      setRider(data);
+      currentCoordsRef.current = { lat: data.currentLat, lng: data.currentLng };
+      setCurrentCoords({ lat: data.currentLat, lng: data.currentLng });
+      setRiderError(null);
+    } catch (err: any) {
+      console.error('[RiderDashboard] Error fetching rider:', err);
+      setRiderError(err.message || 'Failed to load rider details.');
+    } finally {
+      setLoadingRider(false);
+    }
+  }, [router, riderServiceUrl, fetchOrderDetails]);
+
+  // 1. Initial load & browser back/forward navigation (popstate) listener
+  useEffect(() => {
+    syncRiderAndOrderState();
+
+    const handleNavEvent = () => {
+      console.log('[RiderDashboard] Navigation event (popstate/focus) detected. Resyncing state...');
+      syncRiderAndOrderState();
     };
 
-    fetchRider();
-  }, [router, riderServiceUrl]);
+    window.addEventListener('popstate', handleNavEvent);
+    window.addEventListener('focus', handleNavEvent);
+
+    return () => {
+      window.removeEventListener('popstate', handleNavEvent);
+      window.removeEventListener('focus', handleNavEvent);
+    };
+  }, [syncRiderAndOrderState]);
 
   // Clean up socket & interval on unmount
   useEffect(() => {
@@ -149,6 +198,7 @@ export default function RiderDashboardPage() {
 
       const updatedRider = await response.json();
       setRider((prev) => (prev ? { ...prev, isAvailable: updatedRider.isAvailable } : null));
+      localStorage.setItem('riderAvailability', String(updatedRider.isAvailable));
     } catch (err: any) {
       alert(`Error updating availability: ${err.message}`);
     }
@@ -158,27 +208,7 @@ export default function RiderDashboardPage() {
   const handleLookupOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!lookupOrderId.trim()) return;
-
-    setLoadingOrder(true);
-    setOrderError(null);
-
-    try {
-      console.log(`[RiderDashboard] Fetching order details for ID: ${lookupOrderId.trim()}`);
-      const response = await fetch(`${orderServiceUrl}/orders/${lookupOrderId.trim()}`);
-
-      if (!response.ok) {
-        throw new Error(`Order not found or backend unavailable (HTTP ${response.status})`);
-      }
-
-      const orderData: OrderInfo = await response.json();
-      setActiveOrder(orderData);
-    } catch (err: any) {
-      console.error('[RiderDashboard] Lookup error:', err);
-      setOrderError(err.message || 'Failed to fetch order details');
-      setActiveOrder(null);
-    } finally {
-      setLoadingOrder(false);
-    }
+    await fetchOrderDetails(lookupOrderId.trim());
   };
 
   // 4. Start sending live GPS location
@@ -285,8 +315,25 @@ export default function RiderDashboardPage() {
       const updatedOrder = await response.json();
       setActiveOrder(updatedOrder);
 
-      if (newStatus === 'delivered' && isStreaming) {
-        handleStopStreaming();
+      // Connect socket if not already connected and emit status:update event
+      if (!socketRef.current) {
+        console.log(`[RiderDashboard] Connecting Socket.io to ${trackingServiceUrl} for status update`);
+        socketRef.current = io(trackingServiceUrl, {
+          transports: ['websocket', 'polling'],
+        });
+      }
+
+      console.log(`[RiderDashboard] Emitting status:update -> orderId: ${targetOrderId}, status: ${newStatus}`);
+      socketRef.current.emit('status:update', {
+        orderId: targetOrderId,
+        status: newStatus,
+      });
+
+      if (newStatus === 'delivered') {
+        localStorage.removeItem('activeOrderId');
+        if (isStreaming) {
+          handleStopStreaming();
+        }
       }
     } catch (err: any) {
       alert(`Could not update order status: ${err.message}`);
@@ -298,6 +345,7 @@ export default function RiderDashboardPage() {
     handleStopStreaming();
     if (socketRef.current) socketRef.current.disconnect();
     localStorage.removeItem('riderId');
+    localStorage.removeItem('activeOrderId');
     router.push('/rider');
   };
 

@@ -12,6 +12,7 @@ import { Logger, UsePipes, ValidationPipe } from '@nestjs/common';
 import { TrackingService } from './tracking.service';
 import { LocationUpdateDto } from './dto/location-update.dto';
 import { TrackJoinDto } from './dto/track-join.dto';
+import { StatusUpdateDto } from './dto/status-update.dto';
 
 @WebSocketGateway({
   cors: {
@@ -32,6 +33,27 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   handleDisconnect(client: Socket) {
     this.logger.log(`WebSocket Client Disconnected: ${client.id}`);
+  }
+
+  /**
+   * Event: "status:update"
+   * Emitted when an order's status changes (e.g. assigned -> picked_up -> delivered).
+   * Broadcasts to all sockets watching the orderId room.
+   */
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  @SubscribeMessage('status:update')
+  async handleStatusUpdate(
+    @MessageBody() payload: StatusUpdateDto,
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `[status:update] Order [${payload.orderId}] status -> ${payload.status}`,
+    );
+
+    // Broadcast status update to all clients in the orderId room
+    this.server.to(payload.orderId).emit('status:update', payload);
+
+    return { event: 'status:update', status: 'ok', data: payload };
   }
 
   /**

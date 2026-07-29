@@ -77,6 +77,9 @@ export default function TrackingPage() {
   useEffect(() => {
     if (!orderId) return;
 
+    console.log(`[TrackingPage] Writing lastOrderId to localStorage: ${orderId}`);
+    localStorage.setItem('lastOrderId', orderId);
+
     const orderServiceUrl =
       process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || 'http://localhost:3000';
 
@@ -187,12 +190,21 @@ export default function TrackingPage() {
       {/* Top Header Navigation */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 mb-2 transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Place Order
-          </Link>
+          <div className="flex items-center gap-3 mb-2">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to Place Order
+            </Link>
+            <span className="text-slate-300 text-xs">•</span>
+            <Link
+              href="/"
+              className="text-xs font-semibold text-sky-600 hover:text-sky-700 transition-colors"
+            >
+              + Place a new order
+            </Link>
+          </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
             <span>Order #{orderId.substring(0, 8)}...</span>
             <StatusBadge status={order.status} />
@@ -296,6 +308,9 @@ export default function TrackingPage() {
             address: order.dropAddress,
           }}
           onRiderLocationUpdate={(loc) => setRiderLocation(loc)}
+          onOrderStatusUpdate={(newStatus) =>
+            setOrder((prev) => (prev ? { ...prev, status: newStatus } : prev))
+          }
         />
       </div>
 
