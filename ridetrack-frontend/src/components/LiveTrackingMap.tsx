@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { io, Socket } from 'socket.io-client';
 
@@ -215,6 +215,35 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
 
         {/* Auto fit map bounds */}
         <FitMapBounds pickup={pickup} drop={drop} rider={riderLocation} />
+
+        {/* Planned Route Line (Pickup A to Drop B) */}
+        <Polyline
+          positions={[
+            [pickup.lat, pickup.lng],
+            [drop.lat, drop.lng],
+          ]}
+          pathOptions={{
+            color: '#38bdf8', // sky-400
+            weight: 4,
+            opacity: 0.7,
+            dashArray: '8, 8',
+          }}
+        />
+
+        {/* Live Rider Remaining Path Line (Rider to Drop B) */}
+        {riderLocation && (
+          <Polyline
+            positions={[
+              [riderLocation.lat, riderLocation.lng],
+              [drop.lat, drop.lng],
+            ]}
+            pathOptions={{
+              color: '#10b981', // emerald-500
+              weight: 4,
+              opacity: 0.95,
+            }}
+          />
+        )}
 
         {/* Pickup Location Marker */}
         <Marker position={[pickup.lat, pickup.lng]} icon={pickupPin}>

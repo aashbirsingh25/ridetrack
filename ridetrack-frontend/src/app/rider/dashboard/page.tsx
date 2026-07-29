@@ -102,6 +102,103 @@ export default function RiderDashboardPage() {
     }
   }, [orderServiceUrl]);
 
+  // 4. Start sending live GPS location
+  const handleStartStreaming = (explicitOrderId?: string | React.MouseEvent) => {
+    const orderIdToStream =
+      (typeof explicitOrderId === 'string' ? explicitOrderId : null) ||
+      activeOrder?._id ||
+      activeOrder?.id ||
+      lookupOrderId ||
+      localStorage.getItem('activeOrderId') ||
+      localStorage.getItem('lastOrderId');
+
+    if (!orderIdToStream) {
+      alert('Please enter an order ID to stream location updates for.');
+      return;
+    }
+
+    // CRITICAL FIX: Ensure only one interval runs at a time
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (!socketRef.current) {
+      console.log(`[RiderDashboard] Connecting Socket.io to ${trackingServiceUrl}`);
+      socketRef.current = io(trackingServiceUrl, {
+        transports: ['websocket', 'polling'],
+      });
+
+      socketRef.current.on('connect', () => {
+        console.log(`[RiderDashboard] Socket.io connected. ID: ${socketRef.current?.id}`);
+      });
+    }
+
+    setIsStreaming(true);
+    localStorage.setItem('isSendingLocation', 'true');
+
+    // Run interval every 3 seconds
+    intervalRef.current = setInterval(() => {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            emitLocation(lat, lng, orderIdToStream);
+          },
+          (error) => {
+            console.warn('[Geolocation] Browser GPS unavailable or denied. Using simulated delta step.', error.message);
+            simulateNextDelta(orderIdToStream);
+          },
+          { enableHighAccuracy: true, timeout: 2500 },
+        );
+      } else {
+        simulateNextDelta(orderIdToStream);
+      }
+    }, 3000);
+  };
+
+  // Helper to simulate tiny position delta for demo/indoor environments
+  const simulateNextDelta = (targetOrderId: string) => {
+    const prev = currentCoordsRef.current;
+    // Tiny delta (~0.0004 deg ≈ 40 meters)
+    const nextLat = prev.lat + (Math.random() - 0.5) * 0.0008;
+    const nextLng = prev.lng + (Math.random() - 0.5) * 0.0008;
+    emitLocation(nextLat, nextLng, targetOrderId);
+  };
+
+  // Emit location payload to Tracking Service WebSocket
+  const emitLocation = (lat: number, lng: number, targetOrderId: string) => {
+    if (!riderId) return;
+
+    currentCoordsRef.current = { lat, lng };
+    setCurrentCoords({ lat, lng });
+    const timestamp = new Date().toLocaleTimeString();
+    setLastStreamTime(timestamp);
+
+    const payload = {
+      riderId,
+      orderId: targetOrderId,
+      lat: Number(lat.toFixed(6)),
+      lng: Number(lng.toFixed(6)),
+    };
+
+    console.log('[RiderDashboard] Emitting location:update', payload);
+    if (socketRef.current) {
+      socketRef.current.emit('location:update', payload);
+    }
+  };
+
+  // 5. Stop sending location
+  const handleStopStreaming = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setIsStreaming(false);
+    localStorage.setItem('isSendingLocation', 'false');
+  };
+
   // Sync rider details and stored active order from localStorage on mount & popstate
   const syncRiderAndOrderState = useCallback(async () => {
     const storedRiderId = localStorage.getItem('riderId');
@@ -118,6 +215,13 @@ export default function RiderDashboardPage() {
     if (storedActiveOrderId) {
       setLookupOrderId(storedActiveOrderId);
       fetchOrderDetails(storedActiveOrderId);
+    }
+
+    // Re-check stored isSendingLocation state and auto-resume if active
+    const isSendingLocation = localStorage.getItem('isSendingLocation') === 'true';
+    if (isSendingLocation && storedActiveOrderId && !intervalRef.current) {
+      console.log(`[RiderDashboard] Auto-resuming GPS streaming for order ${storedActiveOrderId}...`);
+      handleStartStreaming(storedActiveOrderId);
     }
 
     // Fetch rider profile details
@@ -211,89 +315,6 @@ export default function RiderDashboardPage() {
     await fetchOrderDetails(lookupOrderId.trim());
   };
 
-  // 4. Start sending live GPS location
-  const handleStartStreaming = () => {
-    const orderIdToStream = activeOrder?._id || activeOrder?.id || lookupOrderId;
-
-    if (!orderIdToStream) {
-      alert('Please enter an order ID to stream location updates for.');
-      return;
-    }
-
-    if (!socketRef.current) {
-      console.log(`[RiderDashboard] Connecting Socket.io to ${trackingServiceUrl}`);
-      socketRef.current = io(trackingServiceUrl, {
-        transports: ['websocket', 'polling'],
-      });
-
-      socketRef.current.on('connect', () => {
-        console.log(`[RiderDashboard] Socket.io connected. ID: ${socketRef.current?.id}`);
-      });
-    }
-
-    setIsStreaming(true);
-
-    // Run interval every 3 seconds
-    intervalRef.current = setInterval(() => {
-      if ('geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            emitLocation(lat, lng, orderIdToStream);
-          },
-          (error) => {
-            console.warn('[Geolocation] Browser GPS unavailable or denied. Using simulated delta step.', error.message);
-            simulateNextDelta(orderIdToStream);
-          },
-          { enableHighAccuracy: true, timeout: 2500 },
-        );
-      } else {
-        simulateNextDelta(orderIdToStream);
-      }
-    }, 3000);
-  };
-
-  // Helper to simulate tiny position delta for demo/indoor environments
-  const simulateNextDelta = (targetOrderId: string) => {
-    const prev = currentCoordsRef.current;
-    // Tiny delta (~0.0004 deg ≈ 40 meters)
-    const nextLat = prev.lat + (Math.random() - 0.5) * 0.0008;
-    const nextLng = prev.lng + (Math.random() - 0.5) * 0.0008;
-    emitLocation(nextLat, nextLng, targetOrderId);
-  };
-
-  // Emit location payload to Tracking Service WebSocket
-  const emitLocation = (lat: number, lng: number, targetOrderId: string) => {
-    if (!riderId) return;
-
-    currentCoordsRef.current = { lat, lng };
-    setCurrentCoords({ lat, lng });
-    const timestamp = new Date().toLocaleTimeString();
-    setLastStreamTime(timestamp);
-
-    const payload = {
-      riderId,
-      orderId: targetOrderId,
-      lat: Number(lat.toFixed(6)),
-      lng: Number(lng.toFixed(6)),
-    };
-
-    console.log('[RiderDashboard] Emitting location:update', payload);
-    if (socketRef.current) {
-      socketRef.current.emit('location:update', payload);
-    }
-  };
-
-  // 5. Stop sending location
-  const handleStopStreaming = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    setIsStreaming(false);
-  };
-
   // 6. Update order status (picked_up / delivered)
   const handleUpdateOrderStatus = async (newStatus: 'picked_up' | 'delivered') => {
     const targetOrderId = activeOrder?._id || activeOrder?.id || lookupOrderId;
@@ -331,9 +352,8 @@ export default function RiderDashboardPage() {
 
       if (newStatus === 'delivered') {
         localStorage.removeItem('activeOrderId');
-        if (isStreaming) {
-          handleStopStreaming();
-        }
+        localStorage.removeItem('isSendingLocation');
+        handleStopStreaming();
       }
     } catch (err: any) {
       alert(`Could not update order status: ${err.message}`);
@@ -346,6 +366,8 @@ export default function RiderDashboardPage() {
     if (socketRef.current) socketRef.current.disconnect();
     localStorage.removeItem('riderId');
     localStorage.removeItem('activeOrderId');
+    localStorage.removeItem('isSendingLocation');
+    localStorage.removeItem('riderAvailability');
     router.push('/rider');
   };
 
