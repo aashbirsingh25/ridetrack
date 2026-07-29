@@ -1,81 +1,105 @@
-# RideTrack Microservices Platform 🚴📦
+# RideTrack 🚴📦
 
 [![CI](https://github.com/aashbirsingh25/ridetrack/actions/workflows/ci.yml/badge.svg)](https://github.com/aashbirsingh25/ridetrack/actions/workflows/ci.yml)
 
-RideTrack is an event-driven, production-grade microservices system designed for real-time delivery order placement, automated rider dispatching, live GPS location tracking over WebSockets, and ML-powered ETA duration predictions.
+🚀 **Live Frontend Demo**: [https://ridetrack-q1ta.vercel.app](https://ridetrack-q1ta.vercel.app) *(Note: Backend microservices deployed on Render)*
+
+RideTrack is a real-time delivery tracking and logistics platform architected with an event-driven microservices infrastructure. Built to demonstrate distributed systems design, RideTrack orchestrates asynchronous order dispatching via message queues, real-time bidirectional GPS location streaming over WebSockets, machine learning-driven ETA duration predictions, and interactive road-following map navigation.
 
 ---
 
-## 🏗️ Architecture & Services Overview
+## ✨ Key Features
 
-The system consists of five decoupled services containerized with multi-stage Docker builds and coordinated via Docker Compose:
+- ⚡ **Real-Time GPS Tracking**: Bidirectional WebSocket stream (`Socket.io`) backed by Redis pub/sub caching for smooth, flicker-free live location updates on Leaflet maps.
+- 🔄 **Event-Driven Auto-Dispatch**: Asynchronous message broker pipeline via `RabbitMQ` that decouples order intake from nearest-rider matching algorithms.
+- ⏱️ **ML-Based ETA Prediction**: Dedicated Python FastAPI microservice utilizing `scikit-learn` Random Forest regression to predict delivery duration based on trip distance and time-of-day traffic patterns.
+- 📍 **Geospatial Rider Matching**: Haversine distance calculations and PostgreSQL queries to match incoming orders with the nearest available rider.
+- 🗺️ **Road-Following Route Geometry**: Integrates the free OSRM Public Routing API to parse GeoJSON street coordinates and draw real road paths instead of straight lines.
 
-| Service Name | Tech Stack | Port | Responsibilities & External Dependencies |
+---
+
+## 📐 Architecture & Event Flow
+
+```mermaid
+flowchart TD
+    FE["Next.js 14 Frontend (ridetrack-frontend)"]
+    OS["Order Service (delivery-order-service)"]
+    RS["Rider Service (rider-dispatch-service)"]
+    TS["Tracking Service (live-tracking-service)"]
+    ES["ETA Service (eta-prediction-service)"]
+    OSRM["OSRM Public Routing API"]
+
+    RMQ[("RabbitMQ Broker")]
+    MDB[("MongoDB Atlas")]
+    PG[("PostgreSQL")]
+    RDS[("Redis Cache")]
+
+    FE -->|HTTP / REST| OS
+    FE -->|HTTP / REST| RS
+    FE -->|WebSocket Stream| TS
+    FE -->|HTTP / REST| ES
+    FE -->|GeoJSON Route| OSRM
+
+    OS -->|Persist Orders| MDB
+    OS -->|Publish order.placed| RMQ
+    RMQ -->|Consume order.placed| RS
+    RS -->|Persist Riders| PG
+    RS -->|Publish order.assigned| RMQ
+    TS -->|Pub/Sub GPS State| RDS
+```
+
+---
+
+## 🛠️ Tech Stack & Service Breakdown
+
+| Service / Component | Technology Stack | Database / Broker | Primary Role |
 | :--- | :--- | :--- | :--- |
-| **`delivery-order-service`** | NestJS, TypeScript, Mongoose, RabbitMQ | `3000` | Manages order creation, status transitions, and lifecycle events. Persists orders to **MongoDB Atlas** and publishes/subscribes to **CloudAMQP RabbitMQ** (`order_placed` / `order_assigned`). |
-| **`rider-dispatch-service`** | NestJS, TypeScript, TypeORM, PostgreSQL, RabbitMQ | `3001` | Handles rider availability, location updates, and automatic rider dispatch algorithms based on proximity. Connected to **Supabase PostgreSQL** and **CloudAMQP RabbitMQ**. |
-| **`live-tracking-service`** | NestJS, TypeScript, Socket.io, Redis | `3002` | Facilitates real-time bidirectional WebSocket streaming of rider location coordinates to tracking clients. Uses **Upstash Redis** for pub/sub state caching. |
-| **`eta-prediction-service`** | Python 3.11, FastAPI, Scikit-learn, Pandas | `3004` | Serves machine learning regression predictions (`eta_model.pkl`) to estimate delivery duration (in minutes) based on Haversine distance and time-of-day traffic dynamics. |
-| **`ridetrack-frontend`** | Next.js 14, React, TailwindCSS, Leaflet | `3003` | Modern interactive web dashboard providing customer order placement, real-time rider tracking maps, and rider status control panels. |
+| **`ridetrack-frontend`** | Next.js 14, React 18, Tailwind CSS, Leaflet | LocalSockets / State | Interactive order placement, live GPS map tracking, and rider dashboard controls. |
+| **`delivery-order-service`** | NestJS, TypeScript, Mongoose | MongoDB Atlas | Order lifecycle management, status transitions, and order creation events. |
+| **`rider-dispatch-service`** | NestJS, TypeScript, TypeORM | PostgreSQL (Supabase) | Rider profile registry, availability management, and geospatial proximity dispatching. |
+| **`live-tracking-service`** | NestJS, TypeScript, Socket.io | Upstash Redis | Bidirectional WebSocket rooms streaming real-time rider GPS coordinate updates. |
+| **`eta-prediction-service`** | Python 3.11, FastAPI, Scikit-learn | Serialized ML Model (`eta_model.pkl`) | Machine learning regression predicting trip delivery duration in minutes. |
+| **Message Broker** | AMQP (CloudAMQP) | RabbitMQ | Asynchronous event bus connecting Order Placement and Rider Dispatch microservices. |
 
 ---
 
-## ⚡ Prerequisites
+## 🚀 Local Setup Instructions
 
-- **Docker Desktop** installed (with Docker Engine and Docker Compose v2+)
-- Active Cloud Service Credentials configured in each service's `.env` file:
-  - `delivery-order-service/.env` -> `MONGODB_URI`, `RABBITMQ_URL`
-  - `rider-dispatch-service/.env` -> `DATABASE_URL`, `RABBITMQ_URL`
-  - `live-tracking-service/.env` -> `REDIS_URL`
-  - `eta-prediction-service/.env` -> `PORT`
-  - `ridetrack-frontend/.env` -> `NEXT_PUBLIC_*_SERVICE_URL`
+### 1. Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) with Docker Compose v2+
 
----
-
-## 🚀 Running the Stack
-
-To build and start all five services in detached mode with a single command, run from the root directory:
+### 2. Quick Start (Docker Compose)
+Clone the repository and run all 5 microservices in detached mode:
 
 ```bash
+git clone https://github.com/aashbirsingh25/ridetrack.git
+cd ridetrack
+
+# Build and start all microservices
 docker compose up --build -d
 ```
 
-*(Or `docker-compose up --build -d` if using Docker Compose v1)*
+### 3. Service Endpoint Access
+
+| Service | Local URL |
+| :--- | :--- |
+| **Frontend Web App** | `http://localhost:3003` |
+| **Order Service REST API** | `http://localhost:3000` |
+| **Rider Dispatch Service REST API** | `http://localhost:3001` |
+| **Live Tracking Service (WebSockets)** | `http://localhost:3002` |
+| **ETA Prediction Service Docs** | `http://localhost:3004/health` |
 
 ---
 
-## 📊 Monitoring & Log Inspection
-
-To view the status of all running containers:
+## 📊 Useful Docker Commands
 
 ```bash
+# View status of running containers
 docker compose ps
-```
 
-To stream real-time logs across all services:
-
-```bash
+# Stream logs across all services
 docker compose logs -f
-```
 
-To view logs for a specific service (e.g., ETA Prediction Service):
-
-```bash
-docker compose logs -f eta-prediction-service
-```
-
-To stop and remove containers and network:
-
-```bash
+# Stop all services
 docker compose down
 ```
-
----
-
-## 🌐 Endpoint Access Summary
-
-- **Frontend App**: [http://localhost:3003](http://localhost:3003)
-- **Order Service REST API**: [http://localhost:3000](http://localhost:3000)
-- **Rider Dispatch Service REST API**: [http://localhost:3001](http://localhost:3001)
-- **Live Tracking Service (REST & WebSockets)**: [http://localhost:3002](http://localhost:3002)
-- **ETA Prediction API Docs / Health**: [http://localhost:3004/health](http://localhost:3004/health)
