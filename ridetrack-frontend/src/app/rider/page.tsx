@@ -9,8 +9,8 @@ export default function RiderRegisterPage() {
 
   const [name, setName] = useState('Alex Rider');
   const [phone, setPhone] = useState('+1-555-0199');
-  const [currentLat, setCurrentLat] = useState<number>(40.7648);
-  const [currentLng, setCurrentLng] = useState<number>(-73.9747);
+  const [currentLat, setCurrentLat] = useState<number>(30.7333);
+  const [currentLng, setCurrentLng] = useState<number>(76.7790);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

@@ -66,7 +66,7 @@ export default function RiderDashboardPage() {
   // Socket & Interval Refs
   const socketRef = useRef<Socket | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const currentCoordsRef = useRef<{ lat: number; lng: number }>({ lat: 40.7648, lng: -73.9747 });
+  const currentCoordsRef = useRef<{ lat: number; lng: number }>({ lat: 30.7333, lng: 76.7790 });
 
   const riderServiceUrl =
     process.env.NEXT_PUBLIC_RIDER_SERVICE_URL || 'http://localhost:3001';

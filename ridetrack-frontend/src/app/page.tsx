@@ -7,15 +7,15 @@ import { MapPin, User, Navigation, Send, AlertCircle, Sparkles } from 'lucide-re
 export default function HomePage() {
   const router = useRouter();
 
-  // Form State initialized with realistic defaults
+  // Form State initialized with realistic defaults (Chandigarh, India)
   const [customerId, setCustomerId] = useState('');
-  const [pickupAddress, setPickupAddress] = useState('Central Park South, New York, NY');
-  const [pickupLat, setPickupLat] = useState<number>(40.7648);
-  const [pickupLng, setPickupLng] = useState<number>(-73.9747);
+  const [pickupAddress, setPickupAddress] = useState('Sector 17, Chandigarh, India');
+  const [pickupLat, setPickupLat] = useState<number>(30.7410);
+  const [pickupLng, setPickupLng] = useState<number>(76.7813);
 
-  const [dropAddress, setDropAddress] = useState('Times Square, New York, NY');
-  const [dropLat, setDropLat] = useState<number>(40.7580);
-  const [dropLng, setDropLng] = useState<number>(-73.9855);
+  const [dropAddress, setDropAddress] = useState('Elante Mall, Chandigarh, India');
+  const [dropLat, setDropLat] = useState<number>(30.7046);
+  const [dropLng, setDropLng] = useState<number>(76.8018);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { io, Socket } from 'socket.io-client';
@@ -26,27 +26,38 @@ interface LiveTrackingMapProps {
   onOrderStatusUpdate?: (status: string) => void;
 }
 
-// Component to dynamically fit map bounds around markers
+// Component to dynamically fit map bounds around markers without refitting on every GPS tick
 const FitMapBounds: React.FC<{
   pickup: LatLng;
   drop: LatLng;
   rider: RiderLocation | null;
 }> = ({ pickup, drop, rider }) => {
   const map = useMap();
+  const hasFittedRiderRef = useRef(false);
 
+  // Fit bounds for pickup/drop on initial mount or coordinate changes
   useEffect(() => {
     const points: [number, number][] = [
       [pickup.lat, pickup.lng],
       [drop.lat, drop.lng],
     ];
-
-    if (rider) {
-      points.push([rider.lat, rider.lng]);
-    }
-
     const bounds = L.latLngBounds(points);
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
-  }, [map, pickup, drop, rider]);
+  }, [map, pickup.lat, pickup.lng, drop.lat, drop.lng]);
+
+  // Fit bounds once when rider location is first received
+  useEffect(() => {
+    if (rider && !hasFittedRiderRef.current) {
+      const points: [number, number][] = [
+        [pickup.lat, pickup.lng],
+        [drop.lat, drop.lng],
+        [rider.lat, rider.lng],
+      ];
+      const bounds = L.latLngBounds(points);
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      hasFittedRiderRef.current = true;
+    }
+  }, [map, pickup.lat, pickup.lng, drop.lat, drop.lng, rider]);
 
   return null;
 };
@@ -63,7 +74,14 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
     'connecting' | 'connected' | 'disconnected'
   >('connecting');
 
-  // Custom Leaflet Pin Markers using SVG & HTML DivIcons for maximum styling & compatibility
+  // OSRM Road Route State
+  const [routePositions, setRoutePositions] = useState<[number, number][]>([
+    [pickup.lat, pickup.lng],
+    [drop.lat, drop.lng],
+  ]);
+  const [isFetchingRoute, setIsFetchingRoute] = useState(false);
+
+  // Custom Leaflet Pin Markers using SVG & HTML DivIcons
   const pickupPin = useMemo(
     () =>
       L.divIcon({
@@ -110,6 +128,56 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
       }),
     [],
   );
+
+  // Fetch actual road geometry from OSRM Public Routing API
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchOSRMRoute = async () => {
+      try {
+        setIsFetchingRoute(true);
+        const url = `https://router.project-osrm.org/route/v1/driving/${pickup.lng},${pickup.lat};${drop.lng},${drop.lat}?overview=full&geometries=geojson`;
+        console.log(`[OSRM] Fetching road route: ${url}`);
+
+        let response = await fetch(url).catch(() => null);
+        if (!response || !response.ok) {
+          const httpUrl = `http://router.project-osrm.org/route/v1/driving/${pickup.lng},${pickup.lat};${drop.lng},${drop.lat}?overview=full&geometries=geojson`;
+          response = await fetch(httpUrl);
+        }
+
+        if (response && response.ok) {
+          const data = await response.json();
+          if (data.routes && data.routes[0]?.geometry?.coordinates) {
+            // OSRM returns GeoJSON coordinates in [lng, lat] format -> flip to Leaflet [lat, lng]
+            const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
+              (pt: [number, number]) => [pt[1], pt[0]],
+            );
+            if (isMounted && coords.length > 0) {
+              console.log(`[OSRM] Successfully parsed ${coords.length} road coordinates`);
+              setRoutePositions(coords);
+              return;
+            }
+          }
+        }
+        throw new Error('Invalid geometry payload received from OSRM');
+      } catch (err) {
+        console.warn('[OSRM] Route request failed. Falling back to straight polyline:', err);
+        if (isMounted) {
+          setRoutePositions([
+            [pickup.lat, pickup.lng],
+            [drop.lat, drop.lng],
+          ]);
+        }
+      } finally {
+        if (isMounted) setIsFetchingRoute(false);
+      }
+    };
+
+    fetchOSRMRoute();
+    return () => {
+      isMounted = false;
+    };
+  }, [pickup.lat, pickup.lng, drop.lat, drop.lng]);
 
   // Setup Socket.io connection to Tracking Service
   useEffect(() => {
@@ -202,6 +270,14 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
         </span>
       </div>
 
+      {/* OSRM Route Loading Indicator Overlay */}
+      {isFetchingRoute && (
+        <div className="absolute bottom-4 left-4 z-20 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 shadow-md text-xs flex items-center gap-2 text-sky-700 font-medium animate-pulse">
+          <span className="w-3.5 h-3.5 rounded-full border-2 border-sky-600 border-t-transparent animate-spin" />
+          <span>Fetching road route from OSRM...</span>
+        </div>
+      )}
+
       <MapContainer
         center={midpoint}
         zoom={13}
@@ -216,16 +292,13 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
         {/* Auto fit map bounds */}
         <FitMapBounds pickup={pickup} drop={drop} rider={riderLocation} />
 
-        {/* Planned Route Line (Pickup A to Drop B) */}
+        {/* OSRM Road Route Line (Pickup A to Drop B) */}
         <Polyline
-          positions={[
-            [pickup.lat, pickup.lng],
-            [drop.lat, drop.lng],
-          ]}
+          positions={routePositions}
           pathOptions={{
             color: '#38bdf8', // sky-400
             weight: 4,
-            opacity: 0.7,
+            opacity: 0.8,
             dashArray: '8, 8',
           }}
         />
@@ -269,9 +342,10 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
           </Popup>
         </Marker>
 
-        {/* Rider Location Marker (starts hidden until location update arrives) */}
+        {/* Rider Location Marker (Stable Key & CSS smooth transform update) */}
         {riderLocation && (
           <Marker
+            key="rider-live-marker"
             position={[riderLocation.lat, riderLocation.lng]}
             icon={riderPin}
           >

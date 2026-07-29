@@ -41,3 +41,9 @@ body {
 .rider-marker-ping {
   animation: pulse-ring 2s infinite;
 }
+
+/* Smooth transition for live rider marker position updates */
+.rider-marker-icon {
+  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1) !important;
+  will-change: transform;
+}
