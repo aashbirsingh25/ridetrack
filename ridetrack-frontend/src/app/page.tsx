@@ -243,7 +243,7 @@ export default function HomePage() {
             {isSubmitting ? (
               <>
                 <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                <span>Creating Order...</span>
+                <span>Connecting to Order Service... Creating Order...</span>
               </>
             ) : (
               <>

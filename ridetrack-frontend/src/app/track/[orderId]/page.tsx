@@ -199,9 +199,10 @@ export default function TrackingPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto py-12 text-center">
+      <div className="max-w-4xl mx-auto py-16 text-center space-y-3">
         <div className="w-10 h-10 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-slate-600 text-sm font-medium">Fetching order status & tracking room...</p>
+        <p className="text-slate-700 text-sm font-semibold">Connecting to services...</p>
+        <p className="text-slate-500 text-xs">Fetching order status & tracking room...</p>
       </div>
     );
   }
@@ -292,8 +293,8 @@ export default function TrackingPage() {
                   <Clock className="w-5 h-5 animate-spin" />
                 </div>
                 <div>
-                  <div className="text-[11px] text-slate-500 font-medium">Estimated Delivery</div>
-                  <div className="text-xs font-semibold text-slate-400">Calculating ETA...</div>
+                  <div className="text-[11px] text-slate-500 font-medium">Connecting to ETA service...</div>
+                  <div className="text-xs font-semibold text-slate-600">Calculating ETA...</div>
                 </div>
               </div>
             ) : eta ? (

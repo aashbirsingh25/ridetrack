@@ -12,25 +12,60 @@ export default function RiderRegisterPage() {
   const [currentLat, setCurrentLat] = useState<number>(30.7333);
   const [currentLng, setCurrentLng] = useState<number>(76.7790);
 
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Check if riderId already exists in localStorage on page load
+  const riderServiceUrl =
+    process.env.NEXT_PUBLIC_RIDER_SERVICE_URL || 'http://localhost:3001';
+
+  // Check if riderId already exists in localStorage on page load and verify it against backend
   useEffect(() => {
-    const existingRiderId = localStorage.getItem('riderId');
-    if (existingRiderId) {
-      console.log(`[RiderAuth] Existing riderId found: ${existingRiderId}. Redirecting to dashboard.`);
-      router.push('/rider/dashboard');
-    }
-  }, [router]);
+    const verifyExistingSession = async () => {
+      const existingRiderId = localStorage.getItem('riderId');
+      if (!existingRiderId) {
+        setIsCheckingSession(false);
+        return;
+      }
+
+      console.log(`[RiderAuth] Existing riderId found in localStorage: ${existingRiderId}. Verifying with backend...`);
+      try {
+        const response = await fetch(`${riderServiceUrl}/riders/${existingRiderId}`);
+        if (response.ok) {
+          console.log(`[RiderAuth] Rider ID ${existingRiderId} is valid. Redirecting to dashboard.`);
+          router.push('/rider/dashboard');
+          return;
+        }
+
+        // Fallback to list lookup if direct GET returns non-OK
+        const listRes = await fetch(`${riderServiceUrl}/riders`);
+        if (listRes.ok) {
+          const list = await listRes.json();
+          const found = list.find((r: any) => r.id === existingRiderId || r._id === existingRiderId);
+          if (found) {
+            console.log(`[RiderAuth] Rider ID ${existingRiderId} verified in riders list. Redirecting to dashboard.`);
+            router.push('/rider/dashboard');
+            return;
+          }
+        }
+
+        // If rider is not found on backend, remove stale riderId from localStorage
+        console.warn(`[RiderAuth] Rider ID ${existingRiderId} is invalid on backend. Clearing stale session.`);
+        localStorage.removeItem('riderId');
+        setIsCheckingSession(false);
+      } catch (err) {
+        console.warn('[RiderAuth] Could not verify existing rider session:', err);
+        setIsCheckingSession(false);
+      }
+    };
+
+    verifyExistingSession();
+  }, [router, riderServiceUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setErrorMessage(null);
-
-    const riderServiceUrl =
-      process.env.NEXT_PUBLIC_RIDER_SERVICE_URL || 'http://localhost:3001';
 
     const payload = {
       name,
@@ -77,6 +112,16 @@ export default function RiderRegisterPage() {
       setIsSubmitting(false);
     }
   };
+
+  if (isCheckingSession) {
+    return (
+      <div className="max-w-md mx-auto py-16 text-center space-y-3">
+        <div className="w-10 h-10 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-slate-700 text-sm font-semibold">Connecting to services...</p>
+        <p className="text-slate-500 text-xs">Verifying rider session...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto py-8">
@@ -167,7 +212,7 @@ export default function RiderRegisterPage() {
             {isSubmitting ? (
               <>
                 <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                <span>Registering...</span>
+                <span>Connecting to Rider Service... Registering...</span>
               </>
             ) : (
               <>

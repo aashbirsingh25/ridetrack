@@ -75,7 +75,7 @@ export default function RiderDashboardPage() {
   const trackingServiceUrl =
     process.env.NEXT_PUBLIC_TRACKING_SERVICE_URL || 'http://localhost:3002';
 
-  // Helper to fetch order details and persist activeOrderId and lastOrderId
+  // Helper to fetch order details and persist activeOrderId
   const fetchOrderDetails = useCallback(async (idToFetch: string) => {
     setLoadingOrder(true);
     setOrderError(null);
@@ -92,11 +92,11 @@ export default function RiderDashboardPage() {
       setActiveOrder(orderData);
       const validId = orderData._id || orderData.id || idToFetch;
       localStorage.setItem('activeOrderId', validId);
-      localStorage.setItem('lastOrderId', validId);
     } catch (err: any) {
       console.error('[RiderDashboard] Lookup error:', err);
       setOrderError(err.message || 'Failed to fetch order details');
       setActiveOrder(null);
+      localStorage.removeItem('activeOrderId');
     } finally {
       setLoadingOrder(false);
     }
@@ -109,8 +109,7 @@ export default function RiderDashboardPage() {
       activeOrder?._id ||
       activeOrder?.id ||
       lookupOrderId ||
-      localStorage.getItem('activeOrderId') ||
-      localStorage.getItem('lastOrderId');
+      localStorage.getItem('activeOrderId');
 
     if (!orderIdToStream) {
       alert('Please enter an order ID to stream location updates for.');
@@ -210,11 +209,13 @@ export default function RiderDashboardPage() {
 
     setRiderId(storedRiderId);
 
-    // Re-check localStorage for active order
-    const storedActiveOrderId = localStorage.getItem('activeOrderId') || localStorage.getItem('lastOrderId');
+    // Re-check localStorage for active order (only activeOrderId, no fallback to customer lastOrderId)
+    const storedActiveOrderId = localStorage.getItem('activeOrderId');
     if (storedActiveOrderId) {
       setLookupOrderId(storedActiveOrderId);
       fetchOrderDetails(storedActiveOrderId);
+    } else {
+      setLookupOrderId('');
     }
 
     // Re-check stored isSendingLocation state and auto-resume if active
@@ -373,9 +374,10 @@ export default function RiderDashboardPage() {
 
   if (loadingRider) {
     return (
-      <div className="max-w-4xl mx-auto py-12 text-center">
+      <div className="max-w-4xl mx-auto py-16 text-center space-y-3">
         <div className="w-10 h-10 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-slate-600 text-sm font-medium">Loading Rider Profile...</p>
+        <p className="text-slate-700 text-sm font-semibold">Connecting to services...</p>
+        <p className="text-slate-500 text-xs">Loading Rider Profile...</p>
       </div>
     );
   }
@@ -479,9 +481,16 @@ export default function RiderDashboardPage() {
             <button
               type="submit"
               disabled={loadingOrder}
-              className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs rounded-xl transition-colors disabled:opacity-60 shrink-0"
+              className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs rounded-xl transition-colors disabled:opacity-60 shrink-0 flex items-center gap-1.5"
             >
-              {loadingOrder ? 'Loading...' : 'Fetch'}
+              {loadingOrder ? (
+                <>
+                  <span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  <span>Connecting...</span>
+                </>
+              ) : (
+                'Fetch'
+              )}
             </button>
           </form>
 
