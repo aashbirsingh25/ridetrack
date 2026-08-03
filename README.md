@@ -107,7 +107,27 @@ flowchart TD
 | **`delivery-order-service`** | NestJS, TypeScript, Mongoose | `3000` | Order lifecycle state machine, order creation REST API, and MongoDB persistence. |
 | **`rider-dispatch-service`** | NestJS, TypeScript, TypeORM | `3001` | Rider registration, availability states, geospatial proximity matching, and PostgreSQL storage. |
 | **`live-tracking-service`** | NestJS, TypeScript, Socket.io | `3002` | High-frequency bidirectional WebSocket rooms and Redis Pub/Sub location caching. |
-| **`eta-prediction-service`** | Python 3.11, FastAPI, Scikit-learn | `3004` | Machine learning model serving (`eta_model.pkl`) to calculate predicted trip duration. |
+---
+
+## 🌍 Live Deployment
+
+This project is deployed on AWS EC2 (Ubuntu 24.04, t3.micro — free tier) using Docker Compose to run all 5 containerized services.
+
+**Live URL:** http://13.51.255.63:3003
+
+| Service | Live Endpoint |
+|---|---|
+| Frontend App | http://13.51.255.63:3003 |
+| Order Service REST API | http://13.51.255.63:3000 |
+| Rider Dispatch Service REST API | http://13.51.255.63:3001 |
+| Live Tracking Service (REST & WebSockets) | http://13.51.255.63:3002 |
+| ETA Prediction API Docs / Health | http://13.51.255.63:3004/health |
+
+**Deployment notes:**
+- Instance sized at t3.micro (1GB RAM) with a 2GB swap file configured for memory headroom during builds.
+- Services are built and started individually (not all at once) to avoid memory exhaustion on the free-tier instance.
+- Security group allows inbound traffic on ports 22 (SSH), 80, 443, and 3000–3004.
+- `NEXT_PUBLIC_*` environment variables in the frontend are baked in at Docker build time, so they must point to the instance's public IP (not localhost) before building `ridetrack-frontend`.
 
 ---
 
