@@ -111,9 +111,12 @@ flowchart TD
 
 ## 🌍 Live Deployment
 
-This project is deployed on AWS EC2 (Ubuntu 24.04, t3.micro — free tier) using Docker Compose to run all 5 containerized services.
+This project is deployed in two parallel setups to demonstrate different deployment strategies:
 
-**Live URL:** http://13.51.255.63:3003
+> Both deployments run the same codebase. The AWS EC2 setup demonstrates hands-on infrastructure management (Docker, Linux server administration, memory-constrained optimization). The Render/Vercel setup demonstrates modern managed PaaS deployment practices.
+
+### 1. AWS EC2 (Self-managed, Docker Compose)
+- **Live URL:** http://13.51.255.63:3003
 
 | Service | Live Endpoint |
 |---|---|
@@ -121,13 +124,28 @@ This project is deployed on AWS EC2 (Ubuntu 24.04, t3.micro — free tier) using
 | Order Service REST API | http://13.51.255.63:3000 |
 | Rider Dispatch Service REST API | http://13.51.255.63:3001 |
 | Live Tracking Service (REST & WebSockets) | http://13.51.255.63:3002 |
-| ETA Prediction API Docs / Health | http://13.51.255.63:3004/health |
+| ETA Prediction API | http://13.51.255.63:3004/health |
 
-**Deployment notes:**
-- Instance sized at t3.micro (1GB RAM) with a 2GB swap file configured for memory headroom during builds.
-- Services are built and started individually (not all at once) to avoid memory exhaustion on the free-tier instance.
-- Security group allows inbound traffic on ports 22 (SSH), 80, 443, and 3000–3004.
-- `NEXT_PUBLIC_*` environment variables in the frontend are baked in at Docker build time, so they must point to the instance's public IP (not localhost) before building `ridetrack-frontend`.
+- **Setup:** All 5 microservices (`delivery-order-service`, `rider-dispatch-service`, `live-tracking-service`, `eta-prediction-service`, `ridetrack-frontend`) containerized with Docker Compose on a single AWS EC2 instance (t3.micro, Ubuntu 24.04).
+- **Key engineering notes:**
+  - Initial deployment attempt on t3.micro (1GB RAM) hit repeated out-of-memory crashes when building all 5 services in parallel via `docker compose up -d --build`.
+  - Resolved by upgrading temporarily to t3.small (2GB RAM) to complete the build, building services sequentially instead of in parallel, and adding a 2GB swap file for memory headroom.
+  - Downsized back to t3.micro (free tier) post-deployment to keep infrastructure cost at zero, without needing a rebuild of the backend services.
+  - Frontend environment variables (`NEXT_PUBLIC_*`) are baked in at Next.js build time, so any change to the EC2 public IP requires a full frontend rebuild — documented as a known operational step.
+- ⚠️ Note: Instance does not currently have an Elastic IP attached, so the public IP may change if the instance is restarted.
+
+### 2. Render (backends) + Vercel (frontend)
+- **Setup:** Managed, zero-maintenance PaaS deployment — no manual server administration, auto-deploys on push to `main`.
+
+| Service | Live Endpoint |
+|---|---|
+| Frontend (Vercel) | https://ridetrack-q1ta.vercel.app |
+| Order Service (Render) | https://delivery-order-service.onrender.com |
+| Rider Dispatch Service (Render) | https://rider-dispatch-service.onrender.com |
+| Live Tracking Service (Render) | https://live-tracking-service.onrender.com |
+| ETA Prediction Service (Render) | https://eta-prediction-service.onrender.com |
+
+⚠️ Render free-tier backend services spin down after ~15 minutes of inactivity and may take 30-60s to respond on first request (cold start).
 
 ---
 
