@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ridetrack.fullname" . }}-config
+  labels:
+    {{- include "ridetrack.labels" . | nindent 4 }}
+data:
+  DELIVERY_ORDER_SERVICE_PORT: {{ .Values.deliveryOrderService.env.PORT | quote }}
+  RIDER_DISPATCH_SERVICE_PORT: {{ .Values.riderDispatchService.env.PORT | quote }}
+  LIVE_TRACKING_SERVICE_PORT: {{ .Values.liveTrackingService.env.PORT | quote }}
+  ETA_PREDICTION_SERVICE_PORT: {{ .Values.etaPredictionService.env.PORT | quote }}
+  RIDETRACK_FRONTEND_PORT: {{ .Values.ridetrackFrontend.env.PORT | quote }}
+  NEXT_PUBLIC_ORDER_SERVICE_URL: {{ .Values.ridetrackFrontend.env.NEXT_PUBLIC_ORDER_SERVICE_URL | quote }}
+  NEXT_PUBLIC_RIDER_SERVICE_URL: {{ .Values.ridetrackFrontend.env.NEXT_PUBLIC_RIDER_SERVICE_URL | quote }}
+  NEXT_PUBLIC_TRACKING_SERVICE_URL: {{ .Values.ridetrackFrontend.env.NEXT_PUBLIC_TRACKING_SERVICE_URL | quote }}
+  NEXT_PUBLIC_ETA_SERVICE_URL: {{ .Values.ridetrackFrontend.env.NEXT_PUBLIC_ETA_SERVICE_URL | quote }}

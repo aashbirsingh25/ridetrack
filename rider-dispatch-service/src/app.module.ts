@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MetricsModule } from './metrics/metrics.module';
 import { RidersModule } from './riders/riders.module';
 import { Rider } from './riders/entities/rider.entity';
 
@@ -10,6 +11,7 @@ import { Rider } from './riders/entities/rider.entity';
  */
 @Module({
   imports: [
+    MetricsModule,
     // Load environment variables globally from .env file
     ConfigModule.forRoot({
       isGlobal: true,

@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+from prometheus_fastapi_instrumentator import Instrumentator
 
 load_dotenv()
 
@@ -43,6 +44,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Instrument FastAPI with Prometheus metrics at /metrics
+Instrumentator().instrument(app).expose(app)
 
 # Enable CORS for frontend and cross-service access
 app.add_middleware(

@@ -211,7 +211,10 @@ ridetrack/
 │   ├── src/                         # React components, Map view, Socket client
 │   ├── Dockerfile
 │   └── package.json
+├── helm/                            # Production Kubernetes Helm Chart templates & values
+│   └── ridetrack/                   # Chart.yaml, values.yaml, templates/
 ├── DEPLOYMENT.md                    # Cloud deployment guide (Render + Vercel)
+├── KUBERNETES_HELM_GUIDE.md         # Local Kubernetes (Minikube) & Helm deployment guide
 ├── docker-compose.yml               # Local orchestration for all 5 services
 └── README.md                        # Project documentation
 ```

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { MetricsModule } from './metrics/metrics.module';
 import { OrdersModule } from './orders/orders.module';
 
 /**
@@ -9,6 +10,7 @@ import { OrdersModule } from './orders/orders.module';
  */
 @Module({
   imports: [
+    MetricsModule,
     // Load environment variables globally from .env file
     ConfigModule.forRoot({
       isGlobal: true,

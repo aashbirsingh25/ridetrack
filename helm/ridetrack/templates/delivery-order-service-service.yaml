@@ -1,0 +1,19 @@
+{{- if .Values.deliveryOrderService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivery-order-service
+  labels:
+    app.kubernetes.io/component: delivery-order-service
+    {{- include "ridetrack.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.deliveryOrderService.service.type }}
+  ports:
+    - port: {{ .Values.deliveryOrderService.service.port }}
+      targetPort: {{ .Values.deliveryOrderService.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/component: delivery-order-service
+    {{- include "ridetrack.selectorLabels" . | nindent 4 }}
+{{- end }}

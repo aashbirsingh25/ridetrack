@@ -1,0 +1,19 @@
+{{- if .Values.riderDispatchService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: rider-dispatch-service
+  labels:
+    app.kubernetes.io/component: rider-dispatch-service
+    {{- include "ridetrack.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.riderDispatchService.service.type }}
+  ports:
+    - port: {{ .Values.riderDispatchService.service.port }}
+      targetPort: {{ .Values.riderDispatchService.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/component: rider-dispatch-service
+    {{- include "ridetrack.selectorLabels" . | nindent 4 }}
+{{- end }}

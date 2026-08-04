@@ -1,0 +1,22 @@
+{{- if .Values.ridetrackFrontend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: ridetrack-frontend
+  labels:
+    app.kubernetes.io/component: ridetrack-frontend
+    {{- include "ridetrack.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.ridetrackFrontend.service.type }}
+  ports:
+    - port: {{ .Values.ridetrackFrontend.service.port }}
+      targetPort: {{ .Values.ridetrackFrontend.service.targetPort }}
+      {{- if eq .Values.ridetrackFrontend.service.type "NodePort" }}
+      nodePort: {{ .Values.ridetrackFrontend.service.nodePort }}
+      {{- end }}
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/component: ridetrack-frontend
+    {{- include "ridetrack.selectorLabels" . | nindent 4 }}
+{{- end }}

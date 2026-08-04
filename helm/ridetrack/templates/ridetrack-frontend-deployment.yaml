@@ -1,0 +1,69 @@
+{{- if .Values.ridetrackFrontend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ridetrack-frontend
+  labels:
+    app.kubernetes.io/component: ridetrack-frontend
+    {{- include "ridetrack.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.ridetrackFrontend.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: ridetrack-frontend
+      {{- include "ridetrack.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: ridetrack-frontend
+        {{- include "ridetrack.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: ridetrack-frontend
+          image: "{{ .Values.ridetrackFrontend.image.repository }}:{{ .Values.ridetrackFrontend.image.tag }}"
+          imagePullPolicy: {{ .Values.ridetrackFrontend.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ridetrackFrontend.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "ridetrack.fullname" . }}-config
+                  key: RIDETRACK_FRONTEND_PORT
+            - name: NEXT_PUBLIC_ORDER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "ridetrack.fullname" . }}-config
+                  key: NEXT_PUBLIC_ORDER_SERVICE_URL
+            - name: NEXT_PUBLIC_RIDER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "ridetrack.fullname" . }}-config
+                  key: NEXT_PUBLIC_RIDER_SERVICE_URL
+            - name: NEXT_PUBLIC_TRACKING_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "ridetrack.fullname" . }}-config
+                  key: NEXT_PUBLIC_TRACKING_SERVICE_URL
+            - name: NEXT_PUBLIC_ETA_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "ridetrack.fullname" . }}-config
+                  key: NEXT_PUBLIC_ETA_SERVICE_URL
+          resources:
+            {{- toYaml .Values.ridetrackFrontend.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.ridetrackFrontend.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.ridetrackFrontend.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.ridetrackFrontend.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.ridetrackFrontend.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.ridetrackFrontend.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.ridetrackFrontend.probes.readiness.periodSeconds }}
+{{- end }}

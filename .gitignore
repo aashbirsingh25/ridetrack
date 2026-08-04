@@ -1,4 +1,4 @@
-# Environment variables (credentials)
+# Environment variables & secrets (credentials)
 .env
 **/.env
 .env.local
@@ -7,6 +7,14 @@
 !**/.env.example
 !.env.local.example
 !**/.env.local.example
+terraform.tfvars
+**/*.tfvars
+*.pem
+*.key
+*.pfx
+secrets/
+*.tfstate
+*.tfstate.*
 
 # Dependencies
 node_modules/

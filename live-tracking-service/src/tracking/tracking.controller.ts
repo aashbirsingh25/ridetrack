@@ -6,6 +6,15 @@ export class TrackingController {
   constructor(private readonly trackingService: TrackingService) {}
 
   /**
+   * GET /tracking
+   * Health check endpoint for Kubernetes liveness & readiness probes.
+   */
+  @Get()
+  healthCheck() {
+    return { status: 'ok', service: 'live-tracking-service' };
+  }
+
+  /**
    * GET /tracking/:orderId/location
    * Returns the last known location for an order directly from Redis.
    * Useful for testing & REST consumers without requiring a WebSocket client connection.

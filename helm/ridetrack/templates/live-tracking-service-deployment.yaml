@@ -1,0 +1,54 @@
+{{- if .Values.liveTrackingService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: live-tracking-service
+  labels:
+    app.kubernetes.io/component: live-tracking-service
+    {{- include "ridetrack.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.liveTrackingService.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: live-tracking-service
+      {{- include "ridetrack.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: live-tracking-service
+        {{- include "ridetrack.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: live-tracking-service
+          image: "{{ .Values.liveTrackingService.image.repository }}:{{ .Values.liveTrackingService.image.tag }}"
+          imagePullPolicy: {{ .Values.liveTrackingService.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.liveTrackingService.service.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "ridetrack.fullname" . }}-config
+                  key: LIVE_TRACKING_SERVICE_PORT
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ridetrack.fullname" . }}-secret
+                  key: REDIS_URL
+          resources:
+            {{- toYaml .Values.liveTrackingService.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.liveTrackingService.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.liveTrackingService.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.liveTrackingService.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.liveTrackingService.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.liveTrackingService.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.liveTrackingService.probes.readiness.periodSeconds }}
+{{- end }}

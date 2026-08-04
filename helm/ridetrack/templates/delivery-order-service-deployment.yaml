@@ -1,0 +1,59 @@
+{{- if .Values.deliveryOrderService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivery-order-service
+  labels:
+    app.kubernetes.io/component: delivery-order-service
+    {{- include "ridetrack.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.deliveryOrderService.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: delivery-order-service
+      {{- include "ridetrack.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: delivery-order-service
+        {{- include "ridetrack.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: delivery-order-service
+          image: "{{ .Values.deliveryOrderService.image.repository }}:{{ .Values.deliveryOrderService.image.tag }}"
+          imagePullPolicy: {{ .Values.deliveryOrderService.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.deliveryOrderService.service.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "ridetrack.fullname" . }}-config
+                  key: DELIVERY_ORDER_SERVICE_PORT
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ridetrack.fullname" . }}-secret
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ridetrack.fullname" . }}-secret
+                  key: RABBITMQ_URL
+          resources:
+            {{- toYaml .Values.deliveryOrderService.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.deliveryOrderService.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.deliveryOrderService.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.deliveryOrderService.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.deliveryOrderService.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.deliveryOrderService.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.deliveryOrderService.probes.readiness.periodSeconds }}
+{{- end }}

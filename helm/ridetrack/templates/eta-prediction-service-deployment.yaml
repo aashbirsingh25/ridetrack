@@ -1,0 +1,49 @@
+{{- if .Values.etaPredictionService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eta-prediction-service
+  labels:
+    app.kubernetes.io/component: eta-prediction-service
+    {{- include "ridetrack.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.etaPredictionService.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: eta-prediction-service
+      {{- include "ridetrack.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: eta-prediction-service
+        {{- include "ridetrack.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: eta-prediction-service
+          image: "{{ .Values.etaPredictionService.image.repository }}:{{ .Values.etaPredictionService.image.tag }}"
+          imagePullPolicy: {{ .Values.etaPredictionService.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.etaPredictionService.service.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "ridetrack.fullname" . }}-config
+                  key: ETA_PREDICTION_SERVICE_PORT
+          resources:
+            {{- toYaml .Values.etaPredictionService.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.etaPredictionService.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.etaPredictionService.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.etaPredictionService.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.etaPredictionService.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.etaPredictionService.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.etaPredictionService.probes.readiness.periodSeconds }}
+{{- end }}
