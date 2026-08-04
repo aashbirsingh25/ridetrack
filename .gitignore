@@ -9,6 +9,8 @@
 !**/.env.local.example
 terraform.tfvars
 **/*.tfvars
+values-secrets.yaml
+**/values-secrets.yaml
 *.pem
 *.key
 *.pfx

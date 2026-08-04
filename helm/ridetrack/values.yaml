@@ -171,10 +171,12 @@ ridetrackFrontend:
 
 # ==============================================================================
 # Secrets & External Datastores Configuration
+# Pass actual credentials via helm -f values-secrets.yaml (gitignored)
 # ==============================================================================
 
 secrets:
-  mongodbUri: "REDACTED_MONGODB_URI"
-  databaseUrl: "REDACTED_DATABASE_URL"
-  rabbitmqUrl: "REDACTED_RABBITMQ_URL"
-  redisUrl: "REDACTED_REDIS_URL"
+  mongodbUri: "" # Provide via values-secrets.yaml or --set secrets.mongodbUri=...
+  databaseUrl: "" # Provide via values-secrets.yaml or --set secrets.databaseUrl=...
+  rabbitmqUrl: "" # Provide via values-secrets.yaml or --set secrets.rabbitmqUrl=...
+  redisUrl: "" # Provide via values-secrets.yaml or --set secrets.redisUrl=...
+
