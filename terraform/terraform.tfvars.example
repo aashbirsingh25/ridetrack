@@ -1,0 +1,10 @@
+# RideTrack Infrastructure Terraform Variables Template
+# Copy this file to terraform.tfvars to override default values
+
+aws_region          = "eu-north-1"
+instance_type       = "t3.micro"
+ami_id              = "ami-05bfa4a7765f38076" # Ubuntu 24.04 LTS (eu-north-1)
+key_name            = "ridetrack-key"
+security_group_name = "ridetrack-sg"
+project_name        = "RideTrack"
+environment         = "Production"
