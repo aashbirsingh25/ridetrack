@@ -17,12 +17,11 @@ provider "aws" {
 # ------------------------------------------------------------------------------
 resource "aws_security_group" "ridetrack_sg" {
   name        = var.security_group_name
-  description = "Security group for RideTrack microservices deployment on EC2"
+  description = "Security group for RideTrack EC2 deployment"
   vpc_id      = var.vpc_id
 
   # SSH Access
   ingress {
-    description = "SSH access"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -31,7 +30,6 @@ resource "aws_security_group" "ridetrack_sg" {
 
   # HTTP Web Traffic
   ingress {
-    description = "HTTP access"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -40,17 +38,47 @@ resource "aws_security_group" "ridetrack_sg" {
 
   # HTTPS Web Traffic
   ingress {
-    description = "HTTPS access"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Microservices REST & WebSocket Ports (3000-3004)
+  # Delivery Order Service
   ingress {
-    description = "RideTrack Microservices Ports (3000: delivery, 3001: rider, 3002: tracking, 3003: frontend, 3004: eta)"
     from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Rider Dispatch Service
+  ingress {
+    from_port   = 3001
+    to_port     = 3001
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Live Tracking Service
+  ingress {
+    from_port   = 3002
+    to_port     = 3002
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # RideTrack Frontend
+  ingress {
+    from_port   = 3003
+    to_port     = 3003
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # ETA Prediction Service
+  ingress {
+    from_port   = 3004
     to_port     = 3004
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
@@ -58,17 +86,10 @@ resource "aws_security_group" "ridetrack_sg" {
 
   # Outbound Rule (Full Egress)
   egress {
-    description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name        = var.security_group_name
-    Project     = var.project_name
-    Environment = var.environment
   }
 }
 
@@ -82,14 +103,12 @@ resource "aws_instance" "ridetrack_ec2" {
   vpc_security_group_ids = [aws_security_group.ridetrack_sg.id]
 
   root_block_device {
-    volume_size           = 20
+    volume_size           = 8
     volume_type           = "gp3"
     delete_on_termination = true
   }
 
   tags = {
-    Name        = "ridetrack-ec2"
-    Project     = var.project_name
-    Environment = var.environment
+    Name = "ridetrack-server-v2"
   }
 }

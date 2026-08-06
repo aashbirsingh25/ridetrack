@@ -17,6 +17,8 @@ values-secrets.yaml
 secrets/
 *.tfstate
 *.tfstate.*
+.terraform/
+**/.terraform/
 
 # Dependencies
 node_modules/
