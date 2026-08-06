@@ -27,6 +27,11 @@
 ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
+![Helm](https://img.shields.io/badge/Helm-0F1689?style=for-the-badge&logo=helm&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-7B42BC?style=for-the-badge&logo=terraform&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
 ![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socketdotio&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwindcss&logoColor=white)
@@ -61,9 +66,9 @@ Rather than coupling all capabilities into a single monolithic codebase, RideTra
 | **Road-Following Navigation** | OSRM Public Routing API | Snaps origin and destination points to actual street geometry instead of inaccurate straight lines. |
 | **ML ETA Prediction** | Python + FastAPI + Scikit-Learn | Random Forest model trained on trip metrics achieving **MAE of 1.52 minutes** and **R² of 0.99**. |
 | **Geospatial Rider Matching** | PostgreSQL Spatial Queries | Queries active riders in geographic proximity to pick up new assignments efficiently. |
-| **One-Command Orchestration** | Docker Compose | Spins up all 5 microservices, databases, and message brokers locally with `docker compose up --build -d`. |
+| **K8s & Helm Deployment** | Kubernetes + Helm | Orchestrates all 5 services with HTTP/TCP liveness & readiness probes for automated self-healing. |
+| **Infrastructure as Code** | Terraform (AWS) | EC2 and Security Group provisioned & imported to Terraform state with **0 configuration drift**. |
 | **Automated Green CI** | GitHub Actions Workflow | Runs end-to-end linting, unit testing, and Docker build validations on every pull request and push. |
-| **Proactive Security Hardening** | Git History Purge & Secret Rotation | Handled credential exposure via `git-filter-repo`, full secret rotation, and strict `.env` policy enforcement. |
 
 ---
 
@@ -99,14 +104,25 @@ flowchart TD
 
 ---
 
-## 🛠️ Service Breakdown
+## 🛠️ Service Breakdown & Tech Stack
 
+### Microservices
 | Service | Tech Stack | Port | Primary Responsibility |
 | :--- | :--- | :--- | :--- |
 | **`ridetrack-frontend`** | Next.js 14, React 18, Tailwind CSS, Leaflet | `3003` | User order interface, live driver map tracking, route rendering, and rider dashboard. |
 | **`delivery-order-service`** | NestJS, TypeScript, Mongoose | `3000` | Order lifecycle state machine, order creation REST API, and MongoDB persistence. |
 | **`rider-dispatch-service`** | NestJS, TypeScript, TypeORM | `3001` | Rider registration, availability states, geospatial proximity matching, and PostgreSQL storage. |
 | **`live-tracking-service`** | NestJS, TypeScript, Socket.io | `3002` | High-frequency bidirectional WebSocket rooms and Redis Pub/Sub location caching. |
+| **`eta-prediction-service`** | Python 3.11, FastAPI, Scikit-Learn | `3004` | Machine learning ETA model inference and historical trip feature scoring. |
+
+### DevOps & Infrastructure Stack
+| Tool / Component | Category | Purpose |
+| :--- | :--- | :--- |
+| **Docker & Compose** | Containerization | Containerizes all 5 microservices for consistent local and production execution. |
+| **Kubernetes & Helm** | Container Orchestration | Production K8s manifests packaged via custom Helm chart (`helm/ridetrack`) with health probes & config management. |
+| **Terraform** | Infrastructure as Code | Provisions and manages AWS EC2 instance and security groups in `eu-north-1` with zero drift. |
+| **Prometheus & Grafana** | Observability & Metrics | Scrapes microservice `/metrics` endpoints for real-time pod health, CPU/memory, and HTTP throughput dashboards. |
+
 ---
 
 ## 🌍 Live Deployment
@@ -115,7 +131,7 @@ This project is deployed in two parallel setups to demonstrate different deploym
 
 > Both deployments run the same codebase. The AWS EC2 setup demonstrates hands-on infrastructure management (Docker, Linux server administration, memory-constrained optimization). The Render/Vercel setup demonstrates modern managed PaaS deployment practices.
 
-### 1. AWS EC2 (Self-managed, Docker Compose)
+### 1. AWS EC2 (Self-managed, Docker Compose & Terraform)
 - **Live URL:** http://13.51.255.63:3003
 
 | Service | Live Endpoint |
@@ -126,7 +142,7 @@ This project is deployed in two parallel setups to demonstrate different deploym
 | Live Tracking Service (REST & WebSockets) | http://13.51.255.63:3002 |
 | ETA Prediction API | http://13.51.255.63:3004/health |
 
-- **Setup:** All 5 microservices (`delivery-order-service`, `rider-dispatch-service`, `live-tracking-service`, `eta-prediction-service`, `ridetrack-frontend`) containerized with Docker Compose on a single AWS EC2 instance (t3.micro, Ubuntu 24.04).
+- **Setup:** All 5 microservices containerized with Docker Compose on an AWS EC2 instance (t3.micro, Ubuntu 24.04). Provisioned and managed as code using **Terraform** with state import reconciliation.
 - **Key engineering notes:**
   - Initial deployment attempt on t3.micro (1GB RAM) hit repeated out-of-memory crashes when building all 5 services in parallel via `docker compose up -d --build`.
   - Resolved by upgrading temporarily to t3.small (2GB RAM) to complete the build, building services sequentially instead of in parallel, and adding a 2GB swap file for memory headroom.
@@ -146,6 +162,18 @@ This project is deployed in two parallel setups to demonstrate different deploym
 | ETA Prediction Service (Render) | https://eta-prediction-service.onrender.com |
 
 ⚠️ Render free-tier backend services spin down after ~15 minutes of inactivity and may take 30-60s to respond on first request (cold start).
+
+---
+
+## ☁️ Infrastructure & Observability
+
+RideTrack incorporates enterprise-grade cloud-native infrastructure, automated provisioning, and real-time observability:
+
+* ☸️ **Kubernetes & Helm Orchestration**: Multi-service cluster deployment managed via a custom Helm chart ([`helm/ridetrack`](helm/ridetrack)), featuring automated resource limits, HTTP/TCP readiness & liveness probes for self-healing, and environment secret management.
+* 📊 **Prometheus + Grafana Observability**: Metrics instrumentation across all backend services (`/metrics` endpoints), scraping system runtime, HTTP request rates, and WebSocket connection counts into live Grafana monitoring dashboards.
+* 🏗️ **Terraform Infrastructure as Code (IaC)**: AWS cloud resources (EC2 instance and security group in `eu-north-1`) provisioned and tracked via Terraform state, fully imported and reconciled with **zero configuration drift**.
+
+👉 *For step-by-step local Kubernetes deployment (Minikube + Helm) and Prometheus metrics configuration, see [`KUBERNETES_HELM_GUIDE.md`](KUBERNETES_HELM_GUIDE.md).*
 
 ---
 
@@ -171,7 +199,29 @@ This project is deployed in two parallel setups to demonstrate different deploym
    docker compose up --build -d
    ```
 
-### 3. Local Service Endpoints
+### 3. Deploy on Kubernetes (Helm)
+
+To deploy the full platform on a local Kubernetes cluster using Helm:
+
+1. **Start Minikube**:
+   ```bash
+   minikube start
+   ```
+
+2. **Install the Helm Chart**:
+   ```bash
+   helm install ridetrack ./helm/ridetrack
+   ```
+
+3. **Verify Deployment & Access Frontend**:
+   ```bash
+   kubectl get pods
+   kubectl port-forward svc/ridetrack-frontend 3003:3003
+   ```
+
+👉 *See [`KUBERNETES_HELM_GUIDE.md`](KUBERNETES_HELM_GUIDE.md) for ingress setup, secrets configuration, and Prometheus metrics debugging.*
+
+### 4. Local Service Endpoints
 
 | Service / Component | Local URL |
 | :--- | :--- |
@@ -213,6 +263,10 @@ ridetrack/
 │   └── package.json
 ├── helm/                            # Production Kubernetes Helm Chart templates & values
 │   └── ridetrack/                   # Chart.yaml, values.yaml, templates/
+├── terraform/                       # Infrastructure as Code (AWS EC2 & Security Group)
+│   ├── main.tf                      # AWS resource definitions
+│   ├── variables.tf                 # Variable inputs
+│   └── outputs.tf                   # Output definitions
 ├── DEPLOYMENT.md                    # Cloud deployment guide (Render + Vercel)
 ├── KUBERNETES_HELM_GUIDE.md         # Local Kubernetes (Minikube) & Helm deployment guide
 ├── docker-compose.yml               # Local orchestration for all 5 services
@@ -228,7 +282,7 @@ During initial service modularization, a circular dependency error was encounter
 * **Solution**: Refactored module imports using NestJS `forwardRef()` utility and clean event abstraction via RabbitMQ handlers, completely decoupling compile-time token resolution while retaining full runtime type-safety.
 
 ### 2. Security Secret Exposure Incident & Remediation
-A MongoDB connection string was inadvertently committed during early development and flagged by GitHub Secret Scanning.
+A MongoDB connection string was inadvertently committed when the Helm chart's values.yaml was committed with plaintext secrets and flagged by GitHub Secret Scanning.
 * **Immediate Response**: Rotated the exposed database credentials immediately on MongoDB Atlas.
 * **Remediation**: Used `git-filter-repo` to purge the exposed credential string from the full Git commit history.
 * **Hardening**: Standardized `.env.example` templates, added secret scanning hooks, and proactively rotated credentials across all other service datastores (Supabase PostgreSQL, Upstash Redis, and CloudAMQP RabbitMQ) to enforce robust security hygiene.
@@ -244,9 +298,10 @@ During high-frequency (500ms) WebSocket position updates, map marker pins experi
 
 ## 🔮 Roadmap
 
-- [ ] **Kubernetes Orchestration**: Production deployment configs and Helm charts for minikube / EKS.
-- [ ] **Observability & Monitoring**: Prometheus metric collection and Grafana dashboards for throughput and WebSocket latency.
-- [ ] **Live Traffic ETA Recalculation**: Continuous ETA adjustments based on dynamic congestion along active routes.
+- [x] **Kubernetes Orchestration**: Production deployment configs and Helm charts for Minikube / EKS with self-healing probes.
+- [x] **Observability & Monitoring**: Prometheus metric collection (`/metrics`) and Grafana dashboards for pod health and HTTP/WebSocket latency.
+- [x] **Infrastructure as Code**: Terraform configuration for AWS EC2 and security group management with 0 drift.
+- [x] **Live Traffic ETA Recalculation**: Continuous ETA adjustments based on dynamic congestion along active routes.
 - [ ] **Multi-Rider Bidding Flow**: Auction-style dispatching allowing nearby drivers to accept or bid on delivery offers.
 
 ---
